@@ -81,6 +81,14 @@ Remote data collector for environmental monitoring.
 
 ---
 
+## Hardware Reference
+
+### ESP32 Pinout
+
+![ESP32 Pinout](images/ESP32-Pinout.png)
+
+---
+
 ## File Structure
 
 ```
@@ -95,7 +103,7 @@ esp-home/
 
 ---
 
-## Setup Instructions
+## Setup Instructions 
 
 ### Prerequisites
 
@@ -121,7 +129,19 @@ Create or edit `secrets.yaml`:
 ```yaml
 wifi_ssid: "YOUR_WIFI_SSID"
 wifi_password: "YOUR_WIFI_PASSWORD"
-web_password: "YOUR_WEB_INTERFACE_PASSWORD"
+
+# Sensor Node Secrets
+node_api_encryption_key: "GENERATED_KEY_FOR_NODE"
+node_ota_password: "SECURE_PASSWORD_FOR_NODE_OTA"
+node_fallback_ap_password: "SECURE_PASSWORD_FOR_NODE_AP"
+
+# Hub Controller Secrets
+hub_api_encryption_key: "GENERATED_KEY_FOR_HUB"
+hub_ota_password: "SECURE_PASSWORD_FOR_HUB_OTA"
+hub_fallback_ap_password: "SECURE_PASSWORD_FOR_HUB_AP"
+
+# Password for 'admin' user on Hub web interface
+web_password: "YOUR_WEB_INTERFACE_PASSWORD" 
 ```
 
 **IMPORTANT:** Never commit `secrets.yaml` to version control!
@@ -181,9 +201,9 @@ esphome logs esphome-sensor-node.yaml
 
 ---
 
-## Sensor Integration (Planned)
+## Sensor Integration
 
-When hardware arrives, add sensor configurations:
+Add sensor configurations:
 
 ### Example: Temperature & Humidity (DHT22)
 
@@ -305,6 +325,11 @@ api:
 - Verify hardware connections
 - Check for output conflicts in YAML
 - Review compilation errors
+
+### OTA Authentication Failed
+
+If you changed the OTA password in `secrets.yaml`, wireless updates will fail because the device still uses the old password.
+**Solution:** Flash the device via USB cable to update the stored credentials.
 
 ---
 

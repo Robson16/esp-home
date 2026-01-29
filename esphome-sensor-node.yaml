@@ -23,11 +23,11 @@ logger:
 
 api:
   encryption:
-    key: "R0gwPdxSK9p+Lm2jTA125NVyRjfjFYtv0ZPFrjQ2fbw="
+    key: !secret node_api_encryption_key
 
 ota:
   - platform: esphome
-    password: "87c80a570f7290f11624dc8a541ec4e6"
+    password: !secret node_ota_password
 
 wifi:
   ssid: !secret wifi_ssid
@@ -36,7 +36,7 @@ wifi:
   # Fallback AP for recovery if WiFi connection fails
   ap:
     ssid: "Sensor-Node-01 Fallback"
-    password: "NodeSecurePassword456"
+    password: !secret node_fallback_ap_password
 
 captive_portal:
 
@@ -93,7 +93,19 @@ light:
 # Sensor Components
 # ============================================================================
 
-# TODO: Temperature sensor (DHT22, BME280, etc.)
+# Temperature sensor
+sensor:
+  - platform: dht
+    pin:
+      number: 21
+    model: DHT11
+    temperature:
+      name: "Temperature Sensor Node"
+    humidity:
+      name: "Umidade Sensor Node"
+    update_interval: 60s
+
+
 # TODO: Humidity sensor
 # TODO: Pressure sensor
 # TODO: Air quality sensor

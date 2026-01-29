@@ -23,10 +23,11 @@ logger:
 
 api:
   encryption:
-    key: "R0gwPdxSK9p+Lm2jTA125NVyRjfjFYtv0ZPFrjQ2fbw="
+    key: !secret hub_api_encryption_key
 
 ota:
   - platform: esphome
+    password: !secret hub_ota_password
 
 wifi:
   ssid: !secret wifi_ssid
@@ -35,7 +36,7 @@ wifi:
   # Fallback AP for recovery if WiFi connection fails
   ap:
     ssid: "Hub-Controller Fallback"
-    password: "SuperSecurePassword123"
+    password: !secret hub_fallback_ap_password
 
 captive_portal:
 
