@@ -1,0 +1,101 @@
+# ESPHome Configuration - Hub Controller
+# Central communication hub with Zigbee, display, and Raspberry Pi cluster monitoring
+# This is the main controller coordinating the sensor network
+
+esphome:
+  name: hub-controller
+  friendly_name: Hub Controller
+  comment: "Central hub with Zigbee and display for monitoring sensor network"
+  min_version: 2025.11.0
+  name_add_mac_suffix: false
+
+esp32:
+  variant: esp32
+  framework:
+    type: esp-idf
+
+# ============================================================================
+# System Configuration
+# ============================================================================
+
+logger:
+  level: INFO
+
+api:
+  encryption:
+    key: "R0gwPdxSK9p+Lm2jTA125NVyRjfjFYtv0ZPFrjQ2fbw="
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Fallback AP for recovery if WiFi connection fails
+  ap:
+    ssid: "Hub-Controller Fallback"
+    password: "SuperSecurePassword123"
+
+captive_portal:
+
+# ============================================================================
+# Network & Web Interface
+# ============================================================================
+
+web_server:
+  port: 80
+  auth:
+    username: admin
+    password: !secret web_password
+
+# ============================================================================
+# Hardware - GPIO Configuration
+# ============================================================================
+
+output:
+  # GPIO 2: Status LED (for testing/diagnostics)
+  - platform: gpio
+    pin: 2
+    id: status_led_output
+
+# ============================================================================
+# Light & Effects (Test/Diagnostic)
+# ============================================================================
+
+light:
+  # Status indicator LED - used for testing connectivity
+  - platform: binary
+    name: "Hub Status LED"
+    output: status_led_output
+    icon: mdi:led-on
+    effects:
+      - strobe:
+          name: "Slow Blink"
+          colors:
+            - state: true
+              duration: 1s
+            - state: false
+              duration: 1s
+      - strobe:
+          name: "Fast Blink"
+          colors:
+            - state: true
+              duration: 100ms
+            - state: false
+              duration: 100ms
+      - strobe:
+          name: "Alert Pattern"
+          colors:
+            - state: true
+              duration: 150ms
+            - state: false
+              duration: 150ms
+# ============================================================================
+# Future Components
+# ============================================================================
+
+# TODO: Zigbee coordinator configuration (when hardware is available)
+# TODO: Display/Touch screen integration
+# TODO: Raspberry Pi cluster monitoring sensors
+# TODO: Environmental sensors when hardware arrives
