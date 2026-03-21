@@ -3,8 +3,8 @@
 # Collects temperature, humidity, and other sensor data
 
 esphome:
-  name: sensor-node-01
-  friendly_name: Sensor Node 01
+  name: sensor-node-02
+  friendly_name: Sensor Node 02
   comment: "Remote data collector for environmental monitoring"
   min_version: 2025.11.0
 
@@ -35,7 +35,7 @@ wifi:
 
   # Fallback AP for recovery if WiFi connection fails
   ap:
-    ssid: "Sensor-Node-01 Fallback"
+    ssid: "Sensor-Node-02 Fallback"
     password: !secret node_fallback_ap_password
 
 captive_portal:
@@ -64,7 +64,7 @@ output:
 light:
   # Status indicator LED - used for testing connectivity
   - platform: binary
-    name: "Sensor Node Status LED"
+    name: "Sensor Node 02 Status LED" # <-- NOME CORRIGIDO AQUI
     output: status_led_output
     icon: mdi:led-on
     effects:
@@ -100,22 +100,12 @@ sensor:
       number: 21
     model: DHT11
     temperature:
-      name: "Temperature Sensor Node"
+      name: "Temperature Sensor Node 02" # <-- NOME CORRIGIDO AQUI
     humidity:
-      name: "Umidade Sensor Node"
+      name: "Umidade Sensor Node 02" # <-- NOME CORRIGIDO AQUI
     update_interval: 60s
-
 
 # TODO: Humidity sensor
 # TODO: Pressure sensor
-# TODO: Air quality sensor
 # TODO: Motion/Presence sensor
 # TODO: Light intensity sensor
-
-# ============================================================================
-# Binary Sensors
-# ============================================================================
-
-# TODO: Motion detection
-# TODO: Door/window contact sensors
-# TODO: Leak detection

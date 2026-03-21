@@ -1,16 +1,15 @@
-# ESPHome Configuration - Hub Controller
-# Central communication hub with Zigbee, display, and Raspberry Pi cluster monitoring
-# This is the main controller coordinating the sensor network
+# ESPHome Configuration - Sensor Node
+# Remote sensor data collector for environmental monitoring
+# Collects temperature, humidity, and other sensor data
 
 esphome:
-  name: hub-controller
-  friendly_name: Hub Controller
-  comment: "Central hub with Zigbee and display for monitoring sensor network"
+  name: sensor-node-01
+  friendly_name: Sensor Node 01
+  comment: "Remote data collector for environmental monitoring"
   min_version: 2025.11.0
-  name_add_mac_suffix: false
 
 esp32:
-  variant: esp32
+  board: esp32dev
   framework:
     type: esp-idf
 
@@ -20,14 +19,15 @@ esp32:
 
 logger:
   level: INFO
+  baud_rate: 115200
 
 api:
   encryption:
-    key: !secret hub_api_encryption_key
+    key: !secret node1_api_encryption_key
 
 ota:
   - platform: esphome
-    password: !secret hub_ota_password
+    password: !secret node1_ota_password
 
 wifi:
   ssid: !secret wifi_ssid
@@ -35,8 +35,8 @@ wifi:
 
   # Fallback AP for recovery if WiFi connection fails
   ap:
-    ssid: "Hub-Controller Fallback"
-    password: !secret hub_fallback_ap_password
+    ssid: "Sensor-Node-01 Fallback"
+    password: !secret node1_fallback_ap_password
 
 captive_portal:
 
@@ -46,9 +46,6 @@ captive_portal:
 
 web_server:
   port: 80
-  auth:
-    username: admin
-    password: !secret web_password
 
 # ============================================================================
 # Hardware - GPIO Configuration
@@ -67,7 +64,7 @@ output:
 light:
   # Status indicator LED - used for testing connectivity
   - platform: binary
-    name: "Hub Status LED"
+    name: "Sensor Node Status LED"
     output: status_led_output
     icon: mdi:led-on
     effects:
@@ -89,14 +86,26 @@ light:
           name: "Alert Pattern"
           colors:
             - state: true
-              duration: 150ms
+              duration: 200ms
             - state: false
-              duration: 150ms
+              duration: 200ms
 # ============================================================================
-# Future Components
+# Sensor Components
 # ============================================================================
 
-# TODO: Zigbee coordinator configuration (when hardware is available)
-# TODO: Display/Touch screen integration
-# TODO: Raspberry Pi cluster monitoring sensors
-# TODO: Environmental sensors when hardware arrives
+# Temperature sensor
+sensor:
+  - platform: dht
+    pin:
+      number: 21
+    model: DHT11
+    temperature:
+      name: "Temperature Sensor Node"
+    humidity:
+      name: "Umidade Sensor Node"
+    update_interval: 60s
+
+# TODO: Humidity sensor
+# TODO: Pressure sensor
+# TODO: Motion/Presence sensor
+# TODO: Light intensity sensor
