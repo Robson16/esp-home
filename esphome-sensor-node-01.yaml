@@ -1,6 +1,8 @@
-# ESPHome Configuration - Sensor Node
+# ============================================================================
+# ESPHome Configuration - Sensor Node 01
 # Remote sensor data collector for environmental monitoring
-# Collects temperature, humidity, and other sensor data
+# Collects temperature, humidity, and displays data locally
+# ============================================================================
 
 esphome:
   name: sensor-node-01
@@ -14,7 +16,7 @@ esp32:
     type: esp-idf
 
 # ============================================================================
-# System Configuration
+# System Configuration & Network
 # ============================================================================
 
 logger:
@@ -23,11 +25,11 @@ logger:
 
 api:
   encryption:
-    key: !secret node1_api_encryption_key
+    key: !secret node_api_encryption_key
 
 ota:
   - platform: esphome
-    password: !secret node1_ota_password
+    password: !secret node_ota_password
 
 wifi:
   ssid: !secret wifi_ssid
@@ -36,19 +38,24 @@ wifi:
   # Fallback AP for recovery if WiFi connection fails
   ap:
     ssid: "Sensor-Node-01 Fallback"
-    password: !secret node1_fallback_ap_password
+    password: !secret node_fallback_ap_password
 
 captive_portal:
-
-# ============================================================================
-# Network & Web Interface
-# ============================================================================
 
 web_server:
   port: 80
 
 # ============================================================================
-# Hardware - GPIO Configuration
+# Hardware Protocols
+# ============================================================================
+
+i2c:
+  sda: 21
+  scl: 22
+  scan: true
+
+# ============================================================================
+# GPIO Outputs & Status LEDs
 # ============================================================================
 
 output:
@@ -57,14 +64,10 @@ output:
     pin: 2
     id: status_led_output
 
-# ============================================================================
-# Light & Effects (Test/Diagnostic)
-# ============================================================================
-
 light:
   # Status indicator LED - used for testing connectivity
   - platform: binary
-    name: "Sensor Node Status LED"
+    name: "Sensor Node 01 Status LED"
     output: status_led_output
     icon: mdi:led-on
     effects:
@@ -89,6 +92,7 @@ light:
               duration: 200ms
             - state: false
               duration: 200ms
+
 # ============================================================================
 # Sensor Components
 # ============================================================================
@@ -96,16 +100,50 @@ light:
 # Temperature sensor
 sensor:
   - platform: dht
-    pin:
-      number: 21
+    pin: 4
     model: DHT11
     temperature:
-      name: "Temperature Sensor Node"
+      name: "Temperature Sensor Node 01"
+      id: temp_sensor_01
     humidity:
-      name: "Umidade Sensor Node"
+      name: "Humidity Sensor Node 01"
+      id: humidity_sensor_01
     update_interval: 60s
 
-# TODO: Humidity sensor
+# ============================================================================
+# Display & Fonts
+# ============================================================================
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_header
+    size: 12
+  - file: "gfonts://Roboto"
+    id: font_data
+    size: 18
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    lambda: |-
+      it.print(0, 0, id(font_header), "MONITOR AMBIENTAL");
+
+      if (id(temp_sensor_01).has_state()) {
+        it.printf(0, 20, id(font_data), "Temp: %.1f C", id(temp_sensor_01).state);
+      } else {
+        it.print(0, 20, id(font_data), "Temp: Lendo...");
+      }
+
+      if (id(humidity_sensor_01).has_state()) {
+        it.printf(0, 42, id(font_data), "Umid: %.1f %%", id(humidity_sensor_01).state);
+      } else {
+        it.print(0, 42, id(font_data), "Umid: Lendo...");
+      }
+
+# ============================================================================
+# TODO List
+# ============================================================================
 # TODO: Pressure sensor
 # TODO: Motion/Presence sensor
 # TODO: Light intensity sensor

@@ -4,7 +4,7 @@
 
 This project manages a distributed IoT sensor network using ESP32 microcontrollers with ESPHome. The system consists of independent remote sensor nodes that communicate directly with a central Home Assistant instance for environmental monitoring.
 
-### Architecture
+### Architecture 
 
 ```text
 ┌────────────────────────────────────────────────┐
@@ -30,6 +30,7 @@ This project manages a distributed IoT sensor network using ESP32 microcontrolle
 *   Native Home Assistant API integration
 *   Web interface for local access
 *   Status LED with diagnostic blink patterns (GPIO 2)
+*   Local OLED display for real-time data readout
 *   Secure OTA (Over-The-Air) updates
 
 #### Planned Features
@@ -55,7 +56,6 @@ esp-home/
 ├── esphome-sensor-node-01.yaml  # Node 1 configuration
 ├── esphome-sensor-node-02.yaml  # Node 2 configuration
 ├── secrets.yaml                 # WiFi and API credentials (not versioned)
-├── archive/                     # Old configurations (e.g., legacy hub)
 └── README.md                    # This file
 ```
 
@@ -126,7 +126,7 @@ Add sensor configurations to your node's YAML file.
 ```yaml
 sensor:
   - platform: dht
-    pin: 21
+    pin: 4
     model: DHT11
     temperature:
       name: "Room Temperature"
@@ -137,21 +137,36 @@ sensor:
     update_interval: 60s
 ```
 
-#### Example: BME280 (Temperature, Humidity, Pressure)
+#### Example: OLED Display (SSD1306)
+
+Para exibir dados em um display local, adicione os componentes `font` e `display`. Este exemplo usa um display I2C SSD1306 e assume que o barramento I2C já está configurado.
 
 ```yaml
-i2c:
-  sda: GPIO21
-  scl: GPIO22
+font:
+  # Configuração de fonte dupla para displays bicolores (amarelo/azul)
+  - file: "gfonts://Roboto"
+    id: font_header
+    size: 12
+  - file: "gfonts://Roboto"
+    id: font_data
+    size: 18
 
-sensor:
-  - platform: bme280
-    temperature:
-      name: "Temperature"
-    pressure:
-      name: "Pressure"
-    humidity:
-      name: "Humidity"
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    lambda: |-
+      it.print(0, 0, id(font_header), "MONITOR AMBIENTAL");
+      if (id(temp_sensor).has_state()) {
+        it.printf(0, 20, id(font_data), "Temp: %.1f C", id(temp_sensor).state);
+      } else {
+        it.print(0, 20, id(font_data), "Temp: Lendo...");
+      }
+      if (id(humidity_sensor).has_state()) {
+        it.printf(0, 42, id(font_data), "Umid: %.1f %%", id(humidity_sensor).state);
+      } else {
+        it.print(0, 42, id(font_data), "Umid: Lendo...");
+      }
 ```
 
 ## Home Assistant Integration
