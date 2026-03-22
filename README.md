@@ -47,7 +47,9 @@ This project manages a distributed IoT sensor network using ESP32 microcontrolle
 
 ## Hardware Reference
 
-*   ESP32 Pinout
+<p align="center">
+    <img alt="screenshot" title="Screenshot" src="./images/ESP32-Pinout.png" />
+</p>
 
 ## File Structure
 
@@ -84,22 +86,16 @@ cd esp-home
 wifi_ssid: "YOUR_WIFI_SSID"
 wifi_password: "YOUR_WIFI_PASSWORD"
 
-# Node 01 Secrets
-node1_api_encryption_key: "GENERATED_KEY"
-node1_ota_password: "SECURE_PASSWORD"
-node1_fallback_ap_password: "SECURE_PASSWORD"
-
-# Node 02 Secrets
-node2_api_encryption_key: "GENERATED_KEY"
-node2_ota_password: "SECURE_PASSWORD"
-node2_fallback_ap_password: "SECURE_PASSWORD"
+# Node Secrets
+node_api_encryption_key: "GENERATED_KEY"
+node_ota_password: "SECURE_PASSWORD"
+node_fallback_ap_password: "SECURE_PASSWORD"
 ```
+
 **IMPORTANT**: Never commit `secrets.yaml` to version control!
 
 3.  **Flash the Nodes (Via Web Dashboard)**
     The easiest way to flash locally is using the ESPHome Web Dashboard:
-
-    Start the local server:
 
 ```bash
 esphome dashboard .
@@ -139,11 +135,11 @@ sensor:
 
 #### Example: OLED Display (SSD1306)
 
-Para exibir dados em um display local, adicione os componentes `font` e `display`. Este exemplo usa um display I2C SSD1306 e assume que o barramento I2C já está configurado.
+To display data on a local display, add the `font` and `display` components. This example uses an SSD1306 I2C display and assumes the I2C bus is already configured.
 
 ```yaml
 font:
-  # Configuração de fonte dupla para displays bicolores (amarelo/azul)
+  # Dual font configuration for bicolor displays (yellow/blue)
   - file: "gfonts://Roboto"
     id: font_header
     size: 12
@@ -156,16 +152,16 @@ display:
     model: "SSD1306 128x64"
     address: 0x3C
     lambda: |-
-      it.print(0, 0, id(font_header), "MONITOR AMBIENTAL");
+      it.print(0, 0, id(font_header), "ENVIRONMENTAL MONITOR");
       if (id(temp_sensor).has_state()) {
         it.printf(0, 20, id(font_data), "Temp: %.1f C", id(temp_sensor).state);
       } else {
-        it.print(0, 20, id(font_data), "Temp: Lendo...");
+        it.print(0, 20, id(font_data), "Temp: Reading...");
       }
       if (id(humidity_sensor).has_state()) {
         it.printf(0, 42, id(font_data), "Umid: %.1f %%", id(humidity_sensor).state);
       } else {
-        it.print(0, 42, id(font_data), "Umid: Lendo...");
+        it.print(0, 42, id(font_data), "Umid: Reading...");
       }
 ```
 

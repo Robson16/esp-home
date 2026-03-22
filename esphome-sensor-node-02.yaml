@@ -23,7 +23,7 @@ logger:
 
 api:
   encryption:
-    key: !secret node_api_encryption_key
+    key: !secret node2_api_encryption_key
 
 ota:
   - platform: esphome
@@ -64,7 +64,7 @@ output:
 light:
   # Status indicator LED - used for testing connectivity
   - platform: binary
-    name: "Sensor Node 02 Status LED" # <-- NOME CORRIGIDO AQUI
+    name: "Sensor Node 02 Status LED"
     output: status_led_output
     icon: mdi:led-on
     effects:
@@ -89,6 +89,7 @@ light:
               duration: 200ms
             - state: false
               duration: 200ms
+
 # ============================================================================
 # Sensor Components
 # ============================================================================
@@ -100,9 +101,9 @@ sensor:
       number: 21
     model: DHT11
     temperature:
-      name: "Temperature Sensor Node 02" # <-- NOME CORRIGIDO AQUI
+      name: "Temperature Sensor Node 02"
     humidity:
-      name: "Umidade Sensor Node 02" # <-- NOME CORRIGIDO AQUI
+      name: "Humidity Sensor Node 02"
     update_interval: 60s
 
 # TODO: Humidity sensor
