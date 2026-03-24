@@ -1,6 +1,8 @@
-# ESPHome Configuration - Sensor Node
+# ============================================================================
+# ESPHome Configuration - Sensor Node 02
 # Remote sensor data collector for environmental monitoring
-# Collects temperature, humidity, and other sensor data
+# Collects temperature, humidity, and displays data locally
+# ============================================================================
 
 esphome:
   name: sensor-node-02
@@ -40,15 +42,20 @@ wifi:
 
 captive_portal:
 
-# ============================================================================
-# Network & Web Interface
-# ============================================================================
-
 web_server:
   port: 80
 
 # ============================================================================
-# Hardware - GPIO Configuration
+# Hardware Protocols
+# ============================================================================
+
+i2c:
+  sda: 21
+  scl: 22
+  scan: true
+
+# ============================================================================
+# GPIO Outputs & Status LEDs
 # ============================================================================
 
 output:
@@ -56,10 +63,6 @@ output:
   - platform: gpio
     pin: 2
     id: status_led_output
-
-# ============================================================================
-# Light & Effects (Test/Diagnostic)
-# ============================================================================
 
 light:
   # Status indicator LED - used for testing connectivity
@@ -94,19 +97,83 @@ light:
 # Sensor Components
 # ============================================================================
 
-# Temperature sensor
+binary_sensor:
+  # Motion/Presence sensor (PIR)
+  - platform: gpio
+    pin: 27
+    name: "Presence Node 02"
+    id: presence_sensor_01
+    device_class: motion
+
 sensor:
+  # Temperature sensor (DHT11)
   - platform: dht
     pin:
-      number: 21
+      number: 4
     model: DHT11
     temperature:
       name: "Temperature Sensor Node 02"
+      id: temp_sensor_01
     humidity:
       name: "Humidity Sensor Node 02"
+      id: humidity_sensor_01
     update_interval: 60s
 
-# TODO: Humidity sensor
+  # Luminosity sensor (ADC)
+  - platform: adc
+    pin: 32
+    name: "Luminosity Node 02"
+    id: light_sensor_01
+    update_interval: 5s
+    attenuation: 11db
+    unit_of_measurement: "%"
+    filters:
+      - calibrate_linear:
+          - 0.0 -> 100.0
+          - 3.3 -> 0.0
+      - clamp:
+          min_value: 0
+          max_value: 100
+
+# ============================================================================
+# Display & Fonts
+# ============================================================================
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_header
+    size: 12
+  - file: "gfonts://Roboto"
+    id: font_data
+    size: 14
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    lambda: |-
+      it.print(0, 0, id(font_header), "ENV. MONITOR");
+
+      if (id(temp_sensor_01).has_state()) {
+        it.printf(0, 18, id(font_data), "Temp: %.1f C", id(temp_sensor_01).state);
+      } else {
+        it.print(0, 18, id(font_data), "Temp: Reading...");
+      }
+
+      if (id(humidity_sensor_01).has_state()) {
+        it.printf(0, 34, id(font_data), "Umid: %.1f %%", id(humidity_sensor_01).state);
+      } else {
+        it.print(0, 34, id(font_data), "Umid: Reading...");
+      }
+
+      if (id(light_sensor_01).has_state()) {
+        it.printf(0, 50, id(font_data), "Light: %.0f %%", id(light_sensor_01).state);
+      } else {
+        it.print(0, 50, id(font_data), "Light: Reading...");
+      }
+
+# ============================================================================
+# TODO List
+# ============================================================================
 # TODO: Pressure sensor
 # TODO: Motion/Presence sensor
-# TODO: Light intensity sensor
