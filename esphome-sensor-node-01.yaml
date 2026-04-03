@@ -1,14 +1,19 @@
 # ============================================================================
 # ESPHome Configuration - Sensor Node 01
-# Remote sensor data collector for environmental monitoring
-# Collects temperature, humidity, and displays data locally
+# Bedroom Environment Monitor
+# Collects Temp, Humidity, Pressure, Gas, CO, Luminosity, and Presence
 # ============================================================================
 
 esphome:
   name: sensor-node-01
   friendly_name: Sensor Node 01
-  comment: "Remote data collector for environmental monitoring"
+  comment: "Bedroom environmental monitoring"
   min_version: 2025.11.0
+  # Automatically starts the 1-minute display timer when powered on
+  on_boot:
+    priority: -100
+    then:
+      - script.execute: display_timer
 
 esp32:
   board: esp32dev
@@ -46,6 +51,14 @@ web_server:
   port: 80
 
 # ============================================================================
+# Time Component (Internet Clock)
+# ============================================================================
+time:
+  - platform: sntp
+    id: relogio_sntp
+    timezone: "America/Sao_Paulo"
+
+# ============================================================================
 # Hardware Protocols
 # ============================================================================
 
@@ -55,7 +68,7 @@ i2c:
   scan: true
 
 # ============================================================================
-# GPIO Outputs & Switches
+# GPIO Outputs & Status LEDs
 # ============================================================================
 
 output:
@@ -64,69 +77,108 @@ output:
     pin: 2
     id: status_led_output
 
-switch:
-  # GPIO 5: Manual Cooler Control
-  - platform: gpio
-    pin: 5
-    name: "Manual Cooler Control"
-    id: cooler_fan_switch
-    icon: "mdi:fan"
-
 light:
-  # Status indicator LED - used for testing connectivity
   - platform: binary
     name: "Sensor Node 01 Status LED"
     output: status_led_output
+    id: node_01_led
     icon: mdi:led-on
-    effects:
-      - strobe:
-          name: "Slow Blink"
-          colors:
-            - state: true
-              duration: 1s
-            - state: false
-              duration: 1s
-      - strobe:
-          name: "Fast Blink"
-          colors:
-            - state: true
-              duration: 100ms
-            - state: false
-              duration: 100ms
-      - strobe:
-          name: "Alert Pattern"
-          colors:
-            - state: true
-              duration: 200ms
-            - state: false
-              duration: 200ms
+
+# ============================================================================
+# Binary Sensors & Automations
+# ============================================================================
+
+binary_sensor:
+  # Motion/Presence sensor (PIR)
+  - platform: gpio
+    pin: 27
+    name: "Presence Node 01"
+    id: presence_sensor_01
+    device_class: motion
+    # Action when motion is detected
+    on_press:
+      then:
+        # 1. Flash the internal blue LED for 200ms
+        - light.turn_on: node_01_led
+        - delay: 200ms
+        - light.turn_off: node_01_led
+        # 2. Start or reset the display timeout script
+        - script.execute: display_timer
+
+# ============================================================================
+# Scripts
+# ============================================================================
+
+script:
+  # Timer that keeps the OLED display on for 1 minute
+  - id: display_timer
+    mode: restart # This makes the timer reset to 0 every time motion is detected
+    then:
+      - lambda: "id(my_oled_display).turn_on();"
+      - delay: 1min
+      - lambda: "id(my_oled_display).turn_off();"
 
 # ============================================================================
 # Sensor Components
 # ============================================================================
 
 sensor:
-  # Temperature sensor (DHT11)
+  # Temperature & Humidity (DHT22)
   - platform: dht
     pin: 4
-    model: DHT11
+    model: DHT22
     temperature:
-      name: "Temperature Sensor Node 01"
-      id: temp_sensor_01
-      # Thermostat Triggers (Turns the Cooler On/Off)
-      on_value_range:
-        - above: 28.0
-          then:
-            - switch.turn_on: cooler_fan_switch
-            - logger.log: "WARNING: Servers are overheating! Cooler on..."
-        - below: 26.0
-          then:
-            - switch.turn_off: cooler_fan_switch
-            - logger.log: "INFO: Temperature stabilized. Turning off the cooler..."
+      name: "DHT Temp Node 01"
+      id: dht_temp_01
     humidity:
-      name: "Humidity Sensor Node 01"
-      id: humidity_sensor_01
+      name: "Humidity Node 01"
+      id: humidity_01
     update_interval: 60s
+
+  # Temperature & Pressure (BMP280)
+  - platform: bmp280_i2c
+    temperature:
+      name: "BMP Temp Node 01"
+      id: bmp_temp_01
+    pressure:
+      name: "Pressure Node 01"
+      id: bmp_pressure_01
+    address: 0x76 # Change to 0x77 if not detected
+    update_interval: 60s
+
+  # Flammable Gas Sensor (MQ-2) converted to Percentage
+  - platform: adc
+    pin: 34
+    name: "MQ-2 Gas Node 01"
+    id: mq2_gas_01
+    update_interval: 10s
+    attenuation: 12db
+    unit_of_measurement: "%"
+    filters:
+      - calibrate_linear:
+          # ATTENTION: Replace "0.4" with the Voltage value when the air is clean!
+          - 0.4 -> 0.0
+          - 3.3 -> 100.0
+      - clamp:
+          min_value: 0
+          max_value: 100
+
+  # Carbon Monoxide Sensor (MQ-7) converted to Percentage
+  - platform: adc
+    pin: 35
+    name: "MQ-7 CO Node 01"
+    id: mq7_co_01
+    update_interval: 10s
+    attenuation: 12db
+    unit_of_measurement: "%"
+    filters:
+      - calibrate_linear:
+          # ATTENTION: Replace "0.4" with the Voltage value when the air is clean!
+          - 0.4 -> 0.0
+          - 3.3 -> 100.0
+      - clamp:
+          min_value: 0
+          max_value: 100
 
   # Luminosity sensor (ADC)
   - platform: adc
@@ -134,7 +186,7 @@ sensor:
     name: "Luminosity Node 01"
     id: light_sensor_01
     update_interval: 5s
-    attenuation: 11db
+    attenuation: 12db
     unit_of_measurement: "%"
     filters:
       - calibrate_linear:
@@ -145,7 +197,7 @@ sensor:
           max_value: 100
 
 # ============================================================================
-# Display & Fonts
+# Display, Fonts & Pagination
 # ============================================================================
 
 font:
@@ -160,30 +212,51 @@ display:
   - platform: ssd1306_i2c
     model: "SSD1306 128x64"
     address: 0x3C
-    lambda: |-
-      it.print(0, 0, id(font_header), "ENV. MONITOR");
+    id: my_oled_display
+    pages:
+      # PAGE 1: Climate (Temp, Humidity, Pressure)
+      - id: page1
+        lambda: |-
+          it.print(0, 0, id(font_header), "CLIMATE (PAGE 1/2)");
 
-      if (id(temp_sensor_01).has_state()) {
-        it.printf(0, 18, id(font_data), "Temp: %.1f C", id(temp_sensor_01).state);
-      } else {
-        it.print(0, 18, id(font_data), "Temp: Reading...");
-      }
+          if (id(relogio_sntp).now().is_valid()) {
+            it.strftime(127, 0, id(font_header), TextAlign::TOP_RIGHT, "%H:%M", id(relogio_sntp).now());
+          }
 
-      if (id(humidity_sensor_01).has_state()) {
-        it.printf(0, 34, id(font_data), "Umid: %.1f %%", id(humidity_sensor_01).state);
-      } else {
-        it.print(0, 34, id(font_data), "Umid: Reading...");
-      }
+          if (id(dht_temp_01).has_state()) {
+            it.printf(0, 18, id(font_data), "Temp: %.1fC", id(dht_temp_01).state);
+          }
+          if (id(humidity_01).has_state()) {
+            it.printf(0, 34, id(font_data), "Hum: %.1f%%", id(humidity_01).state);
+          }
+          if (id(bmp_pressure_01).has_state()) {
+            it.printf(0, 50, id(font_data), "Pres: %.0fhPa", id(bmp_pressure_01).state);
+          }
 
-      if (id(light_sensor_01).has_state()) {
-        it.printf(0, 50, id(font_data), "Light: %.0f %%", id(light_sensor_01).state);
-      } else {
-        it.print(0, 50, id(font_data), "Light: Reading...");
-      }
+      # PAGE 2: Air Quality and Light (Gas, CO, Luminosity)
+      - id: page2
+        lambda: |-
+          it.print(0, 0, id(font_header), "SENSORS (PAGE 2/2)");
+
+          if (id(relogio_sntp).now().is_valid()) {
+            it.strftime(127, 0, id(font_header), TextAlign::TOP_RIGHT, "%H:%M", id(relogio_sntp).now());
+          }
+
+          if (id(mq2_gas_01).has_state()) {
+            it.printf(0, 18, id(font_data), "Gas: %.1f%%", id(mq2_gas_01).state);
+          }
+          if (id(mq7_co_01).has_state()) {
+            it.printf(0, 34, id(font_data), "CO: %.1f%%", id(mq7_co_01).state);
+          }
+          if (id(light_sensor_01).has_state()) {
+            it.printf(0, 50, id(font_data), "Light: %.0f%%", id(light_sensor_01).state);
+          }
 
 # ============================================================================
-# TODO List
+# Automation (Rotates pages every 5 seconds)
 # ============================================================================
-# TODO: Pressure sensor
-# TODO: Motion/Presence sensor
-# TODO: Upgrade to DHT22
+interval:
+  - interval: 5s
+    then:
+      - display.page.show_next: my_oled_display
+      - component.update: my_oled_display

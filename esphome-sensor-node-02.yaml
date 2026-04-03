@@ -1,13 +1,13 @@
 # ============================================================================
 # ESPHome Configuration - Sensor Node 02
-# Remote sensor data collector for environmental monitoring
-# Collects temperature, humidity, and displays data locally
+# Raspberry Pi Cluster Monitor
+# Collects BMP280 Temp/Pressure, Pi Voltage, Ambient Light, Controls 2 Coolers
 # ============================================================================
 
 esphome:
   name: sensor-node-02
   friendly_name: Sensor Node 02
-  comment: "Remote data collector for environmental monitoring"
+  comment: "Raspberry Cluster Monitor"
   min_version: 2025.11.0
 
 esp32:
@@ -46,6 +46,15 @@ web_server:
   port: 80
 
 # ============================================================================
+# Time Component (Internet Clock)
+# ============================================================================
+
+time:
+  - platform: sntp
+    id: time_sntp
+    timezone: "America/Sao_Paulo"
+
+# ============================================================================
 # Hardware Protocols
 # ============================================================================
 
@@ -55,77 +64,59 @@ i2c:
   scan: true
 
 # ============================================================================
-# GPIO Outputs & Status LEDs
+# GPIO Switches (Coolers & Virtual Backlight)
 # ============================================================================
 
-output:
-  # GPIO 2: Status LED (for testing/diagnostics)
+switch:
+  # GPIO 5: Cooler 01
   - platform: gpio
-    pin: 2
-    id: status_led_output
+    pin: 5
+    name: "Cluster Cooler 01"
+    id: cooler_fan_01
+    icon: "mdi:fan"
 
-light:
-  # Status indicator LED - used for testing connectivity
-  - platform: binary
-    name: "Sensor Node 02 Status LED"
-    output: status_led_output
-    icon: mdi:led-on
-    effects:
-      - strobe:
-          name: "Slow Blink"
-          colors:
-            - state: true
-              duration: 1s
-            - state: false
-              duration: 1s
-      - strobe:
-          name: "Fast Blink"
-          colors:
-            - state: true
-              duration: 100ms
-            - state: false
-              duration: 100ms
-      - strobe:
-          name: "Alert Pattern"
-          colors:
-            - state: true
-              duration: 200ms
-            - state: false
-              duration: 200ms
+  # GPIO 18: Cooler 02
+  - platform: gpio
+    pin: 18
+    name: "Cluster Cooler 02"
+    id: cooler_fan_02
+    icon: "mdi:fan"
+
+  # Virtual Switch for LCD Backlight via I2C
+  - platform: template
+    name: "Cluster Display Backlight"
+    id: virtual_lcd_backlight
+    icon: "mdi:monitor-shimmer"
+    optimistic: true
+    turn_on_action:
+      - lambda: "id(lcd_display).backlight();"
+    turn_off_action:
+      - lambda: "id(lcd_display).no_backlight();"
 
 # ============================================================================
 # Sensor Components
 # ============================================================================
 
-binary_sensor:
-  # Motion/Presence sensor (PIR)
-  - platform: gpio
-    pin: 27
-    name: "Presence Node 02"
-    id: presence_sensor_01
-    device_class: motion
-
 sensor:
-  # Temperature sensor (DHT11)
-  - platform: dht
-    pin:
-      number: 4
-    model: DHT11
-    temperature:
-      name: "Temperature Sensor Node 02"
-      id: temp_sensor_01
-    humidity:
-      name: "Humidity Sensor Node 02"
-      id: humidity_sensor_01
-    update_interval: 60s
-
-  # Luminosity sensor (ADC)
+  # Pi Throttling / Voltage Monitor (Voltage Divider 1:2)
   - platform: adc
-    pin: 32
-    name: "Luminosity Node 02"
-    id: light_sensor_01
-    update_interval: 5s
-    attenuation: 11db
+    pin: 34
+    name: "Pi Cluster Voltage"
+    id: pi_voltage_01
+    update_interval: 10s
+    attenuation: 12db
+    unit_of_measurement: "V"
+    accuracy_decimals: 2
+    filters:
+      - multiply: 2.0
+
+  # Ambient Light Sensor (LDR) - Logic to control Display Backlight (Temporary solution until we add a dedicated BH1750 or similar)
+  - platform: adc
+    pin: 35 # Using GPIO 35 (ADC1) to avoid Wi-Fi conflicts
+    name: "Cluster Ambient Light"
+    id: cluster_ldr
+    update_interval: 10s
+    attenuation: 12db
     unit_of_measurement: "%"
     filters:
       - calibrate_linear:
@@ -134,46 +125,70 @@ sensor:
       - clamp:
           min_value: 0
           max_value: 100
+    # Automation: Backlight Control based on light levels
+    on_value_range:
+      - above: 50.0 # Bright enough (Day)
+        then:
+          - switch.turn_on: virtual_lcd_backlight
+      - below: 35.0 # Too dark (Night)
+        then:
+          - switch.turn_off: virtual_lcd_backlight
+
+  # Temperature & Pressure (BMP280) with Automation Logic
+  - platform: bmp280_i2c
+    address: 0x76
+    update_interval: 10s
+    pressure:
+      name: "Cluster Pressure"
+      id: cluster_pressure
+    temperature:
+      name: "Cluster Temperature"
+      id: cluster_temp
+      on_value:
+        then:
+          - if:
+              condition:
+                lambda: "return x >= 30.0;"
+              then:
+                - switch.turn_on: cooler_fan_01
+                - switch.turn_on: cooler_fan_02
+          - if:
+              condition:
+                lambda: "return x <= 28.0;"
+              then:
+                - switch.turn_off: cooler_fan_01
+                - switch.turn_off: cooler_fan_02
 
 # ============================================================================
-# Display & Fonts
+# Display (LCD 1602 I2C)
 # ============================================================================
-
-font:
-  - file: "gfonts://Roboto"
-    id: font_header
-    size: 12
-  - file: "gfonts://Roboto"
-    id: font_data
-    size: 14
 
 display:
-  - platform: ssd1306_i2c
-    model: "SSD1306 128x64"
-    address: 0x3C
+  - platform: lcd_pcf8574
+    dimensions: 16x2
+    address: 0x27
+    id: lcd_display
     lambda: |-
-      it.print(0, 0, id(font_header), "ENV. MONITOR");
-
-      if (id(temp_sensor_01).has_state()) {
-        it.printf(0, 18, id(font_data), "Temp: %.1f C", id(temp_sensor_01).state);
+      if (id(cluster_temp).has_state()) {
+        it.printf(0, 0, "Tmp:%.1fC", id(cluster_temp).state);
       } else {
-        it.print(0, 18, id(font_data), "Temp: Reading...");
+        it.print(0, 0, "Tmp:---");
       }
 
-      if (id(humidity_sensor_01).has_state()) {
-        it.printf(0, 34, id(font_data), "Umid: %.1f %%", id(humidity_sensor_01).state);
+      if (id(cooler_fan_01).state) {
+        it.print(10, 0, "FAN:ON");
       } else {
-        it.print(0, 34, id(font_data), "Umid: Reading...");
+        it.print(10, 0, "FAN:- ");
       }
 
-      if (id(light_sensor_01).has_state()) {
-        it.printf(0, 50, id(font_data), "Light: %.0f %%", id(light_sensor_01).state);
+      if (id(pi_voltage_01).has_state()) {
+        it.printf(0, 1, "Pi V:%.2fV", id(pi_voltage_01).state);
       } else {
-        it.print(0, 50, id(font_data), "Light: Reading...");
+        it.print(0, 1, "Pi V:---");
       }
 
-# ============================================================================
-# TODO List
-# ============================================================================
-# TODO: Pressure sensor
-# TODO: Motion/Presence sensor
+      if (id(time_sntp).now().is_valid()) {
+        it.strftime(11, 1, "%H:%M", id(time_sntp).now());
+      } else {
+        it.print(11, 1, "--:--");
+      }
