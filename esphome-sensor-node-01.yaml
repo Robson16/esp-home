@@ -68,6 +68,14 @@ i2c:
   scan: true
 
 # ============================================================================
+# SPI Protocol (For 7-Segment Display)
+# ============================================================================
+
+spi:
+  clk_pin: 18
+  mosi_pin: 23
+
+# ============================================================================
 # GPIO Outputs & Status LEDs
 # ============================================================================
 
@@ -156,8 +164,7 @@ sensor:
     unit_of_measurement: "%"
     filters:
       - calibrate_linear:
-          # ATTENTION: Replace "0.4" with the Voltage value when the air is clean!
-          - 0.4 -> 0.0
+          - 0.17 -> 0.0
           - 3.3 -> 100.0
       - clamp:
           min_value: 0
@@ -173,8 +180,7 @@ sensor:
     unit_of_measurement: "%"
     filters:
       - calibrate_linear:
-          # ATTENTION: Replace "0.4" with the Voltage value when the air is clean!
-          - 0.4 -> 0.0
+          - 0.21 -> 0.0
           - 3.3 -> 100.0
       - clamp:
           min_value: 0
@@ -197,7 +203,7 @@ sensor:
           max_value: 100
 
 # ============================================================================
-# Display, Fonts & Pagination
+# Displays (OLED I2C & MAX7219 SPI)
 # ============================================================================
 
 font:
@@ -209,6 +215,7 @@ font:
     size: 14
 
 display:
+  # --- Display 1: OLED I2C ---
   - platform: ssd1306_i2c
     model: "SSD1306 128x64"
     address: 0x3C
@@ -252,11 +259,30 @@ display:
             it.printf(0, 50, id(font_data), "Light: %.0f%%", id(light_sensor_01).state);
           }
 
+  # --- Display 2: 7-Segment MAX7219 (Numeric) ---
+  - platform: max7219
+    cs_pin: 5
+    num_chips: 1
+    intensity: 0 # <--- Change this number (from 0 to 15) to adjust brightness
+    id: led_7seg
+    lambda: |-
+      auto time = id(relogio_sntp).now();
+
+      // If time or temperature is not ready, show placeholders
+      if (!time.is_valid() || !id(dht_temp_01).has_state()) {
+        it.print("--.-- --C");
+        return;
+      }
+
+      // Fixed display: HH.MM (4 digits) + XX.XC (4 digits)
+      // Result format: "18.0525.4C"
+      it.printf("%02d.%02d%2.1fC", time.hour, time.minute, id(dht_temp_01).state);
+
 # ============================================================================
-# Automation (Rotates pages every 5 seconds)
+# Automation (Rotates OLED pages every 15 seconds)
 # ============================================================================
 interval:
-  - interval: 5s
+  - interval: 15s
     then:
       - display.page.show_next: my_oled_display
       - component.update: my_oled_display
