@@ -51,6 +51,32 @@ web_server:
   port: 80
 
 # ============================================================================
+# Fonts & Icons Configuration
+# ============================================================================
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_header
+    size: 12
+  - file: "gfonts://Roboto"
+    id: font_data
+    size: 14
+
+  - file: "gfonts://Roboto"
+    id: font_data_large
+    size: 32 # Valor gigante para centralizar na tela
+
+  - file: "./fonts/materialdesignicons-webfont.ttf"
+    id: font_icon_large
+    size: 40 # Ícone bem destacado
+    glyphs:
+      - "\U000F0509" # 🌡️ mdi-thermometer
+      - "\U000F05B8" # 💧 mdi-water-percent (umidade)
+      - "\U000F02A5" # ☁️ mdi-cloud (pressão)
+      - "\U000F0B13" # 💨 mdi-molecule-co2 (gás/co)
+      - "\U000F05A8" # ☀️ mdi-white-balance-sunny (luz)
+
+# ============================================================================
 # Time Component (Internet Clock)
 # ============================================================================
 time:
@@ -206,14 +232,6 @@ sensor:
 # Displays (OLED I2C & MAX7219 SPI)
 # ============================================================================
 
-font:
-  - file: "gfonts://Roboto"
-    id: font_header
-    size: 12
-  - file: "gfonts://Roboto"
-    id: font_data
-    size: 14
-
 display:
   # --- Display 1: OLED I2C ---
   - platform: ssd1306_i2c
@@ -221,42 +239,65 @@ display:
     address: 0x3C
     id: my_oled_display
     pages:
-      # PAGE 1: Climate (Temp, Humidity, Pressure)
+      # PAGE 1: Temperature
       - id: page1
         lambda: |-
-          it.print(0, 0, id(font_header), "CLIMATE (PAGE 1/2)");
-
-          if (id(relogio_sntp).now().is_valid()) {
-            it.strftime(127, 0, id(font_header), TextAlign::TOP_RIGHT, "%H:%M", id(relogio_sntp).now());
-          }
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "TEMPERATURA");
 
           if (id(dht_temp_01).has_state()) {
-            it.printf(0, 18, id(font_data), "Temp: %.1fC", id(dht_temp_01).state);
-          }
-          if (id(humidity_01).has_state()) {
-            it.printf(0, 34, id(font_data), "Hum: %.1f%%", id(humidity_01).state);
-          }
-          if (id(bmp_pressure_01).has_state()) {
-            it.printf(0, 50, id(font_data), "Pres: %.0fhPa", id(bmp_pressure_01).state);
+            // Ícone e dados rebaixados para a faixa azul
+            it.print(10, 20, id(font_icon_large), "\U000F0509");
+            it.printf(55, 25, id(font_data_large), "%.1f°C", id(dht_temp_01).state);
           }
 
-      # PAGE 2: Air Quality and Light (Gas, CO, Luminosity)
+      # PAGE 2: Humidity
       - id: page2
         lambda: |-
-          it.print(0, 0, id(font_header), "SENSORS (PAGE 2/2)");
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "UMIDADE");
 
-          if (id(relogio_sntp).now().is_valid()) {
-            it.strftime(127, 0, id(font_header), TextAlign::TOP_RIGHT, "%H:%M", id(relogio_sntp).now());
+          if (id(humidity_01).has_state()) {
+            it.print(10, 20, id(font_icon_large), "\U000F05B8");
+            it.printf(55, 25, id(font_data_large), "%.1f%%", id(humidity_01).state);
           }
+
+      # PAGE 3: Pressure
+      - id: page3
+        lambda: |-
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "PRESSÃO");
+
+          if (id(bmp_pressure_01).has_state()) {
+            it.print(5, 20, id(font_icon_large), "\U000F02A5");
+            it.printf(50, 25, id(font_data_large), "%.0f", id(bmp_pressure_01).state);
+          }
+
+      # PAGE 4: MQ-2 Gas/Smoke
+      - id: page4
+        lambda: |-
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "GÁS INFLAMÁVEL");
 
           if (id(mq2_gas_01).has_state()) {
-            it.printf(0, 18, id(font_data), "Gas: %.1f%%", id(mq2_gas_01).state);
+            it.print(10, 20, id(font_icon_large), "\U000F0B13");
+            it.printf(55, 25, id(font_data_large), "%.1f%%", id(mq2_gas_01).state);
           }
+
+      # PAGE 5: MQ-7 CO
+      - id: page5
+        lambda: |-
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "MONÓXIDO (CO)");
+
           if (id(mq7_co_01).has_state()) {
-            it.printf(0, 34, id(font_data), "CO: %.1f%%", id(mq7_co_01).state);
+            it.print(10, 20, id(font_icon_large), "\U000F0B13");
+            it.printf(55, 25, id(font_data_large), "%.1f%%", id(mq7_co_01).state);
           }
+
+      # PAGE 6: Luminosity
+      - id: page6
+        lambda: |-
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "LUMINOSIDADE");
+
           if (id(light_sensor_01).has_state()) {
-            it.printf(0, 50, id(font_data), "Light: %.0f%%", id(light_sensor_01).state);
+            it.print(10, 20, id(font_icon_large), "\U000F05A8");
+            it.printf(55, 25, id(font_data_large), "%.0f%%", id(light_sensor_01).state);
           }
 
   # --- Display 2: 7-Segment MAX7219 (Numeric) ---
@@ -270,19 +311,19 @@ display:
 
       // If time or temperature is not ready, show placeholders
       if (!time.is_valid() || !id(dht_temp_01).has_state()) {
-        it.print("--.-- --C");
+        it.print("--C --.--");
         return;
       }
 
-      // Fixed display: HH.MM (4 digits) + XX.XC (4 digits)
-      // Result format: "18.0525.4C"
-      it.printf("%02d.%02d%2.1fC", time.hour, time.minute, id(dht_temp_01).state);
+      // Fixed display: XX.XC (4 digits) + HH.MM (4 digits) 
+      // Result format: "25.4C18.05"
+      it.printf("%2.1fC%02d.%02d", id(dht_temp_01).state, time.hour, time.minute);
 
 # ============================================================================
-# Automation (Rotates OLED pages every 15 seconds)
+# Automation (Rotates OLED pages every 8 seconds)
 # ============================================================================
 interval:
-  - interval: 15s
+  - interval: 8s
     then:
       - display.page.show_next: my_oled_display
       - component.update: my_oled_display
