@@ -1,7 +1,7 @@
 # ============================================================================
 # ESPHome Configuration - Sensor Node 01
 # Bedroom Environment Monitor
-# Collects Temp, Humidity, Pressure, Gas, CO, Luminosity, and Presence
+# Collects Temp, Humidity, Pressure, Gas, CO, Brightness, and Presence
 # ============================================================================
 
 esphome:
@@ -58,23 +58,26 @@ font:
   - file: "gfonts://Roboto"
     id: font_header
     size: 12
+
   - file: "gfonts://Roboto"
     id: font_data
     size: 14
 
   - file: "gfonts://Roboto"
     id: font_data_large
-    size: 32 # Valor gigante para centralizar na tela
+    size: 22 # Giant value to center on the screen
 
   - file: "./fonts/materialdesignicons-webfont.ttf"
     id: font_icon_large
-    size: 40 # Ícone bem destacado
+    size: 34 # Well-highlighted icon
     glyphs:
-      - "\U000F0509" # 🌡️ mdi-thermometer
-      - "\U000F05B8" # 💧 mdi-water-percent (umidade)
-      - "\U000F02A5" # ☁️ mdi-cloud (pressão)
-      - "\U000F0B13" # 💨 mdi-molecule-co2 (gás/co)
-      - "\U000F05A8" # ☀️ mdi-white-balance-sunny (luz)
+      - "\U000F050F" # mdi-thermometer
+      - "\U000F058E" # mdi-water-percent
+      - "\U000F029A" # mdi-gauge
+      - "\U000F00DF" # mdi-brightness
+      - "\U000F1A1B" # mdi-gas-burner
+      - "\U000F12FE" # mdi-molecule-co
+      - "\U000F07E4" # mdi-molecule-co2
 
 # ============================================================================
 # Time Component (Internet Clock)
@@ -212,6 +215,22 @@ sensor:
           min_value: 0
           max_value: 100
 
+  # Air Quality Sensor (MQ-135) converted to Percentage
+  - platform: adc
+    pin: 33
+    name: "MQ-135 Air Quality Node 01"
+    id: mq135_gas_01
+    update_interval: 10s
+    attenuation: 12db
+    unit_of_measurement: "%"
+    filters:
+      - calibrate_linear:
+          - 0.21 -> 0.0
+          - 3.3 -> 100.0
+      - clamp:
+          min_value: 0
+          max_value: 100
+
   # Luminosity sensor (ADC)
   - platform: adc
     pin: 32
@@ -236,68 +255,78 @@ display:
   # --- Display 1: OLED I2C ---
   - platform: ssd1306_i2c
     model: "SSD1306 128x64"
-    address: 0x3C
+    address: 0x3c
     id: my_oled_display
     pages:
       # PAGE 1: Temperature
       - id: page1
         lambda: |-
-          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "TEMPERATURA");
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "TEMPERATURE");
 
           if (id(dht_temp_01).has_state()) {
-            // Ícone e dados rebaixados para a faixa azul
-            it.print(10, 20, id(font_icon_large), "\U000F0509");
+            // Icon and data lowered to the blue band (if using a yellow/blue OLED)
+            it.print(10, 20, id(font_icon_large), "\U000F050F"); // mdi-thermometer
             it.printf(55, 25, id(font_data_large), "%.1f°C", id(dht_temp_01).state);
           }
 
       # PAGE 2: Humidity
       - id: page2
         lambda: |-
-          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "UMIDADE");
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "HUMIDITY");
 
           if (id(humidity_01).has_state()) {
-            it.print(10, 20, id(font_icon_large), "\U000F05B8");
+            it.print(10, 20, id(font_icon_large), "\U000F058E"); // mdi-water-percent
             it.printf(55, 25, id(font_data_large), "%.1f%%", id(humidity_01).state);
           }
 
       # PAGE 3: Pressure
       - id: page3
         lambda: |-
-          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "PRESSÃO");
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "PRESSURE");
 
           if (id(bmp_pressure_01).has_state()) {
-            it.print(5, 20, id(font_icon_large), "\U000F02A5");
+            it.print(5, 20, id(font_icon_large), "\U000F029A"); // mdi-gauge
             it.printf(50, 25, id(font_data_large), "%.0f", id(bmp_pressure_01).state);
           }
 
-      # PAGE 4: MQ-2 Gas/Smoke
+      # PAGE 4: Luminosity
       - id: page4
         lambda: |-
-          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "GÁS INFLAMÁVEL");
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "BRIGHTNESS");
+
+          if (id(light_sensor_01).has_state()) {
+            it.print(10, 20, id(font_icon_large), "\U000F00DF"); // mdi-brightness
+            it.printf(55, 25, id(font_data_large), "%.0f%%", id(light_sensor_01).state);
+          }
+
+      # PAGE 5: MQ-2 Gas/Smoke
+      - id: page5
+        lambda: |-
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "FLAMMABLE GAS");
 
           if (id(mq2_gas_01).has_state()) {
-            it.print(10, 20, id(font_icon_large), "\U000F0B13");
+            it.print(10, 20, id(font_icon_large), "\U000F1A1B"); // mdi-gas-burner
             it.printf(55, 25, id(font_data_large), "%.1f%%", id(mq2_gas_01).state);
           }
 
-      # PAGE 5: MQ-7 CO
-      - id: page5
-        lambda: |-
-          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "MONÓXIDO (CO)");
-
-          if (id(mq7_co_01).has_state()) {
-            it.print(10, 20, id(font_icon_large), "\U000F0B13");
-            it.printf(55, 25, id(font_data_large), "%.1f%%", id(mq7_co_01).state);
-          }
-
-      # PAGE 6: Luminosity
+      # PAGE 6: MQ-7 CO
       - id: page6
         lambda: |-
-          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "LUMINOSIDADE");
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "CARBON MONOXIDE");
 
-          if (id(light_sensor_01).has_state()) {
-            it.print(10, 20, id(font_icon_large), "\U000F05A8");
-            it.printf(55, 25, id(font_data_large), "%.0f%%", id(light_sensor_01).state);
+          if (id(mq7_co_01).has_state()) {
+            it.print(10, 20, id(font_icon_large), "\U000F12FE"); // mdi-molecule-co
+            it.printf(55, 25, id(font_data_large), "%.1f%%", id(mq7_co_01).state);
+          }      
+
+      # PAGE 7: MQ-135 Air Quality
+      - id: page7
+        lambda: |-
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "AIR QUALITY");
+
+          if (id(mq135_gas_01).has_state()) {
+            it.print(10, 20, id(font_icon_large), "\U000F07E4"); // mdi-molecule-co2
+            it.printf(55, 25, id(font_data_large), "%.1f%%", id(mq135_gas_01).state);
           }
 
   # --- Display 2: 7-Segment MAX7219 (Numeric) ---
