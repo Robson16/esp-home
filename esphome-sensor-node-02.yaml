@@ -1,7 +1,6 @@
 # ============================================================================
 # ESPHome Configuration - Sensor Node 02
 # Raspberry Pi Cluster Monitor
-# Collects BMP280 Temp/Pressure, Pi Voltage, Ambient Light, Controls 2 Coolers
 # ============================================================================
 
 esphome:
@@ -46,13 +45,29 @@ web_server:
   port: 80
 
 # ============================================================================
-# Time Component (Internet Clock)
+# Time Component (Internet Clock & LCD Automation)
 # ============================================================================
 
 time:
   - platform: sntp
     id: time_sntp
     timezone: "America/Sao_Paulo"
+    on_time:
+      # --- TURN ON TRIGGER (07:00 AM) ---
+      - seconds: 0
+        minutes: 0
+        hours: 7
+        then:
+          - lambda: "id(lcd_display).backlight();"
+          - switch.turn_on: virtual_lcd_backlight
+
+      # --- TURN OFF TRIGGER (06:00 PM) ---
+      - seconds: 0
+        minutes: 0
+        hours: 18
+        then:
+          - lambda: "id(lcd_display).no_backlight();"
+          - switch.turn_off: virtual_lcd_backlight
 
 # ============================================================================
 # Hardware Protocols
@@ -68,21 +83,21 @@ i2c:
 # ============================================================================
 
 switch:
-  # GPIO 5: Cooler 01
+  # GPIO 5: Cooler 01 (Primary Exhaust)
   - platform: gpio
     pin: 5
-    name: "Cluster Cooler 01"
-    id: cooler_fan_01
+    name: "Output Cooler 01"
+    id: output_cooler_fan_01
     icon: "mdi:fan"
 
-  # GPIO 18: Cooler 02
+  # GPIO 18: Cooler 02 (Secondary Exhaust)
   - platform: gpio
     pin: 18
-    name: "Cluster Cooler 02"
-    id: cooler_fan_02
+    name: "Output Cooler 02"
+    id: output_cooler_fan_02
     icon: "mdi:fan"
 
-  # Virtual Switch for LCD Backlight via I2C
+  # Virtual Switch for LCD Backlight via Home Assistant
   - platform: template
     name: "Cluster Display Backlight"
     id: virtual_lcd_backlight
@@ -94,47 +109,11 @@ switch:
       - lambda: "id(lcd_display).no_backlight();"
 
 # ============================================================================
-# Sensor Components
+# Sensor Components (Multi-Stage Hysteresis)
 # ============================================================================
 
 sensor:
-  # Pi Throttling / Voltage Monitor (Voltage Divider 1:2)
-  - platform: adc
-    pin: 34
-    name: "Pi Cluster Voltage"
-    id: pi_voltage_01
-    update_interval: 10s
-    attenuation: 12db
-    unit_of_measurement: "V"
-    accuracy_decimals: 2
-    filters:
-      - multiply: 2.0
-
-  # Ambient Light Sensor (LDR) - Logic to control Display Backlight (Temporary solution until we add a dedicated BH1750 or similar)
-  - platform: adc
-    pin: 35 # Using GPIO 35 (ADC1) to avoid Wi-Fi conflicts
-    name: "Cluster Ambient Light"
-    id: cluster_ldr
-    update_interval: 10s
-    attenuation: 12db
-    unit_of_measurement: "%"
-    filters:
-      - calibrate_linear:
-          - 0.0 -> 100.0
-          - 3.3 -> 0.0
-      - clamp:
-          min_value: 0
-          max_value: 100
-    # Automation: Backlight Control based on light levels
-    on_value_range:
-      - above: 50.0 # Bright enough (Day)
-        then:
-          - switch.turn_on: virtual_lcd_backlight
-      - below: 35.0 # Too dark (Night)
-        then:
-          - switch.turn_off: virtual_lcd_backlight
-
-  # Temperature & Pressure (BMP280) with Automation Logic
+  # BMP280 Temp/Pressure Sensor
   - platform: bmp280_i2c
     address: 0x76
     update_interval: 10s
@@ -146,18 +125,37 @@ sensor:
       id: cluster_temp
       on_value:
         then:
+          # --- ACCELERATION TRIGGERS (HEATING UP) ---
+
+          # Stage 1 (Moderate): Turn on Primary Cooler
           - if:
               condition:
-                lambda: "return x >= 30.0;"
+                lambda: "return x >= 35.0;"
               then:
-                - switch.turn_on: cooler_fan_01
-                - switch.turn_on: cooler_fan_02
+                - switch.turn_on: output_cooler_fan_01
+
+          # Stage 2 (Hot): Turn on Secondary Cooler
           - if:
               condition:
-                lambda: "return x <= 28.0;"
+                lambda: "return x >= 40.0;"
               then:
-                - switch.turn_off: cooler_fan_01
-                - switch.turn_off: cooler_fan_02
+                - switch.turn_on: output_cooler_fan_02
+
+          # --- DECELERATION TRIGGERS (COOLING DOWN) ---
+
+          # Temperature dropped slightly, turn off Secondary Cooler
+          - if:
+              condition:
+                lambda: "return x <= 38.0;"
+              then:
+                - switch.turn_off: output_cooler_fan_02
+
+          # Temperature stabilized, turn off Primary Cooler
+          - if:
+              condition:
+                lambda: "return x <= 32.0;"
+              then:
+                - switch.turn_off: output_cooler_fan_01
 
 # ============================================================================
 # Display (LCD 1602 I2C)
@@ -169,24 +167,23 @@ display:
     address: 0x27
     id: lcd_display
     lambda: |-
+      // Row 0: Temperature
       if (id(cluster_temp).has_state()) {
         it.printf(0, 0, "Tmp:%.1fC", id(cluster_temp).state);
       } else {
         it.print(0, 0, "Tmp:---");
       }
 
-      if (id(cooler_fan_01).state) {
-        it.print(10, 0, "FAN:ON");
+      // Row 0: Dynamic Fan Status (0, 1, or 2)
+      if (id(output_cooler_fan_01).state && id(output_cooler_fan_02).state) {
+        it.print(10, 0, "FAN: 2");
+      } else if (id(output_cooler_fan_01).state) {
+        it.print(10, 0, "FAN: 1");
       } else {
-        it.print(10, 0, "FAN:- ");
+        it.print(10, 0, "FAN: 0");
       }
 
-      if (id(pi_voltage_01).has_state()) {
-        it.printf(0, 1, "Pi V:%.2fV", id(pi_voltage_01).state);
-      } else {
-        it.print(0, 1, "Pi V:---");
-      }
-
+      // Row 1: Clock
       if (id(time_sntp).now().is_valid()) {
         it.strftime(11, 1, "%H:%M", id(time_sntp).now());
       } else {
