@@ -185,7 +185,7 @@ sensor:
 
   # Flammable Gas Sensor (MQ-2) converted to Percentage
   - platform: adc
-    pin: 34
+    pin: 35
     name: "MQ-2 Gas Node 01"
     id: mq2_gas_01
     update_interval: 10s
@@ -201,7 +201,7 @@ sensor:
 
   # Carbon Monoxide Sensor (MQ-7) converted to Percentage
   - platform: adc
-    pin: 35
+    pin: 32
     name: "MQ-7 CO Node 01"
     id: mq7_co_01
     update_interval: 10s
@@ -233,7 +233,7 @@ sensor:
 
   # Luminosity sensor (ADC)
   - platform: adc
-    pin: 32
+    pin: 34
     name: "Luminosity Node 01"
     id: light_sensor_01
     update_interval: 5s
