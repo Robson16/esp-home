@@ -156,18 +156,18 @@ sensor:
         then:
           # --- ACCELERATION TRIGGERS ---
           - if:
-              condition: { lambda: "return x >= 35.0;" }
+              condition: { lambda: "return x >= 34.0;" }
               then: [ { switch.turn_on: output_cooler_fan_01 } ]
           - if:
-              condition: { lambda: "return x >= 40.0;" }
+              condition: { lambda: "return x >= 39.0;" }
               then: [ { switch.turn_on: output_cooler_fan_02 } ]
 
           # --- DECELERATION TRIGGERS ---
           - if:
-              condition: { lambda: "return x <= 38.0;" }
+              condition: { lambda: "return x <= 36.0;" }
               then: [ { switch.turn_off: output_cooler_fan_02 } ]
           - if:
-              condition: { lambda: "return x <= 32.0;" }
+              condition: { lambda: "return x <= 31.0;" }
               then: [ { switch.turn_off: output_cooler_fan_01 } ]
 
 # ============================================================================
