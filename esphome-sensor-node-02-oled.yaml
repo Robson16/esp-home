@@ -13,6 +13,8 @@ esp32:
   board: esp32dev
   framework:
     type: esp-idf
+    advanced:
+      minimum_chip_revision: "3.1"
 
 # ============================================================================
 # System Configuration
@@ -62,10 +64,10 @@ font:
     id: font_icon
     size: 18
     glyphs:
-      - "󰔏" # mdi-thermometer
-      - "󰈐" # mdi-fan
-      - "󰐿" # mdi-raspberry-pi
-      - "󰍛" # mdi-memory
+      - "\U000F050F" # mdi-thermometer
+      - "\U000F0210" # mdi-fan
+      - "\U000F043F" # mdi-raspberry-pi
+      - "\U000F035B" # mdi-memory
 
 # ============================================================================
 # Time Component & Display Automation
@@ -156,18 +158,18 @@ sensor:
         then:
           # --- ACCELERATION TRIGGERS ---
           - if:
-              condition: { lambda: "return x >= 34.0;" }
+              condition: { lambda: "return x >= 35.0;" }
               then: [ { switch.turn_on: output_cooler_fan_01 } ]
           - if:
-              condition: { lambda: "return x >= 39.0;" }
+              condition: { lambda: "return x >= 40.0;" }
               then: [ { switch.turn_on: output_cooler_fan_02 } ]
 
           # --- DECELERATION TRIGGERS ---
           - if:
-              condition: { lambda: "return x <= 36.0;" }
+              condition: { lambda: "return x <= 37.0;" }
               then: [ { switch.turn_off: output_cooler_fan_02 } ]
           - if:
-              condition: { lambda: "return x <= 31.0;" }
+              condition: { lambda: "return x <= 32.0;" }
               then: [ { switch.turn_off: output_cooler_fan_01 } ]
 
 # ============================================================================

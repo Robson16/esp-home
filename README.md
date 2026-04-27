@@ -2,48 +2,58 @@
 
 ## Overview
 
-This project manages a distributed IoT sensor network using ESP32 microcontrollers with ESPHome. The system consists of independent remote sensor nodes that communicate directly with a central Home Assistant instance for environmental monitoring.
+This project manages a distributed IoT sensor network using ESP32 microcontrollers with ESPHome. The system consists of independent remote sensor nodes that communicate directly with a central Home Assistant instance for comprehensive environmental and infrastructure monitoring.
 
 ### Architecture 
 
 ```text
-┌────────────────────────────────────────────────┐
-│                 Home Assistant                 │
-│          (Raspberry Pi Docker Swarm)           │
-└──────┬──────────────────────────────────┬──────┘
-       │                                  │
-┌──────▼──────┐                    ┌──────▼──────┐
-│   Sensor    │                    │   Sensor    │
-│   Node 01   │                    │   Node 02   │
-│  Temp,      │                    │  Temp,      │
-│  Humidity   │                    │  Humidity   │
-└─────────────┘                    └─────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                    Home Assistant                          │
+│          (Raspberry Pi Docker Swarm - Central Hub)         │
+└──────┬──────────────────────────────┬──────────────────────┘
+       │                              │
+       │                              │
+┌──────▼──────────────────┐   ┌──────▼──────────────────────┐
+│   Sensor Node 01        │   │   Sensor Node 02            │
+│   (Bedroom Monitor)     │   │   (Cluster Monitor OLED)    │
+│  - DHT22 Temp/Humidity  │   │  - BMP280 Temp/Pressure    │
+│  - BMP280 Pressure      │   │  - Remote Pi CPU Temp      │
+│  - MQ-2 Flammable Gas   │   │  - Remote Pi CPU Usage     │
+│  - MQ-7 Carbon Monoxide │   │  - Remote Pi RAM Usage     │
+│  - MQ-135 Air Quality   │   │  - Dual Fan Control        │
+│  - LDR Brightness       │   │  - Hysteresis Logic        │
+│  - PIR Motion Sensor    │   │  (Alternative: LCD 1602)   │
+│  - OLED Display 128x64  │   │  - OLED Display 128x64     │
+│  - 7-Segment MAX7219    │   │  - Time/Date Display       │
+└─────────────────────────┘   └────────────────────────────┘
 ```
 
 ### Components
 
-*   **Sensor Nodes** (`esphome-sensor-node-01.yaml` / `02.yaml`): Remote data collectors for environmental monitoring in different rooms.
+*   **Sensor Node 01** (`esphome-sensor-node-01.yaml`): Comprehensive bedroom environmental sensor with multi-parameter monitoring and dual display outputs.
+*   **Sensor Node 02** (`esphome-sensor-node-02.yaml`): LCD-based cluster monitor for Raspberry Pi infrastructure with temperature-controlled fan management.
+*   **Sensor Node 02 OLED** (`esphome-sensor-node-02-oled.yaml`): OLED variant for remote Pi monitoring with scheduled display automation.
 
 #### Current Features
 
-*   WiFi connectivity with fallback AP
-*   Native Home Assistant API integration
-*   Web interface for local access
-*   Status LED with diagnostic blink patterns (GPIO 2)
-*   Local OLED display for real-time data readout
-*   Secure OTA (Over-The-Air) updates
-
-#### Planned Features
-
-*   Temperature & Humidity sensors (DHT11/22, BME280)
-*   Air quality sensor (CO2, PM2.5)
-*   Motion/Presence detection
+*   **Connectivity:** WiFi with automatic fallback AP for recovery
+*   **Integration:** Native Home Assistant API with encryption
+*   **Web Access:** Built-in web server on port 80 for local interface
+*   **Diagnostics:** Status LED (GPIO 2) with motion-triggered alerts
+*   **Local Display:** OLED and numeric 7-segment displays for real-time readout
+*   **Updates:** Secure OTA (Over-The-Air) wireless updates after initial flash
+*   **Environmental Sensing:** Temperature, humidity, pressure, air quality (gas), brightness, and motion detection
+*   **Remote Monitoring:** Home Assistant sensor integration for remote infrastructure monitoring
+*   **Smart Control:** Multi-stage hysteresis fan control with temperature thresholds
+*   **Time Sync:** SNTP internet clock with timezone support
+*   **Automation:** Scheduled display on/off (07:00 AM - 06:00 PM)
 
 ### Technical Specs
 
-*   **Board:** ESP32-DEV
-*   **Framework:** ESP-IDF
+*   **Board:** ESP32-DEV (NodeMCU-32S compatible)
+*   **Framework:** ESP-IDF (optimized for memory and performance)
 *   **Minimum ESPHome Version:** 2025.11.0
+*   **Python Version:** 3.8+
 
 ## Hardware Reference
 
@@ -55,185 +65,151 @@ This project manages a distributed IoT sensor network using ESP32 microcontrolle
 
 ```text
 esp-home/
-├── esphome-sensor-node-01.yaml  # Node 1 configuration
-├── esphome-sensor-node-02.yaml  # Node 2 configuration
-├── secrets.yaml                 # WiFi and API credentials (not versioned)
-└── README.md                    # This file
+├── esphome-sensor-node-01.yaml       # Node 1: Bedroom environmental sensor
+├── esphome-sensor-node-02.yaml       # Node 2: LCD cluster monitor
+├── esphome-sensor-node-02-oled.yaml  # Node 2: OLED cluster monitoring
+├── secrets.yaml                      # WiFi and API credentials (not versioned)
+├── LICENSE                           # Project license
+├── README.md                         # This file
+├── docs/
+│   ├── Node01WiringGuide.md          # Detailed wiring guide for Node 01
+│   ├── Display7Segments.md           # MAX7219 7-segment display configuration
+│   ├── TempSensorDHT11.md            # DHT11/DHT22 sensor integration guide
+│   └── FanController.md              # Fan control circuit documentation
+├── fonts/
+│   └── materialdesignicons-webfont.ttf
+└── images/
+    ├── ESP32-Pinout.png
+    ├── DHT11.png
+    ├── display-tm1637.jpg
+    └── (other hardware reference images)
 ```
 
 ## Setup Instructions
 
 ### Prerequisites
 
-*   ESPHome installed (CLI or Docker Dashboard)
-*   Home Assistant instance
-*   ESP32 Development Boards
-*   USB Cable (Data transfer capable)
-*   Chromium-based browser (Chrome/Edge/Brave) for Web Flashing
+*   ESPHome installed (CLI or Docker Desktop)
+*   Home Assistant instance (Raspberry Pi with Docker recommended)
+*   ESP32 Development Boards (NodeMCU-32S or similar)
+*   USB Cable (USB 2.0 or 3.0 with data transfer capability)
+*   Chromium-based browser (Google Chrome, Microsoft Edge, or Brave)
+*   Git (for cloning the repository)
+*   Python 3.8+ (if running ESPHome CLI locally)
 
 ### Installation Steps
 
-1.  **Clone or Download This Project**
+#### 1. Clone or Download This Project
+
 ```bash
-git clone <repository-url>
+git clone https://github.com/Robson16/esp-home
 cd esp-home
 ```
 
-2.  **Configure Secrets**
-    Create or edit `secrets.yaml` in the root folder:
+#### 2. Create and Configure Secrets
+
+Create `secrets.yaml` in the root directory with your network credentials:
 
 ```yaml
+# WiFi Credentials
 wifi_ssid: "YOUR_WIFI_SSID"
 wifi_password: "YOUR_WIFI_PASSWORD"
 
-# Node Secrets
-node_api_encryption_key: "GENERATED_KEY"
-node_ota_password: "SECURE_PASSWORD"
-node_fallback_ap_password: "SECURE_PASSWORD"
+# Node 01 Encryption Key (generate with: python3 -c "import secrets; print(secrets.token_hex(16))")
+node1_api_encryption_key: "GENERATED_16_BYTE_HEX_KEY"
+
+# Node 02 Encryption Key
+node2_api_encryption_key: "GENERATED_16_BYTE_HEX_KEY"
+
+# Shared Secrets
+node_ota_password: "SECURE_OTA_PASSWORD_HERE"
+node_fallback_ap_password: "SECURE_FALLBACK_PASSWORD_HERE"
 ```
 
-**IMPORTANT**: Never commit `secrets.yaml` to version control!
+**CRITICAL:** Never commit `secrets.yaml` to version control! Add it to `.gitignore`:
+```bash
+echo "secrets.yaml" >> .gitignore
+git add .gitignore && git commit -m "Add secrets.yaml to gitignore"
+```
 
-3.  **Flash the Nodes (Via Web Dashboard)**
-    The easiest way to flash locally is using the ESPHome Web Dashboard:
+#### 3. Validate Configuration Files
+
+Check YAML syntax before flashing:
+
+```bash
+esphome config esphome-sensor-node-01.yaml
+esphome config esphome-sensor-node-02.yaml
+```
+
+#### 4. Flash the First Node (Web Dashboard)
+
+The easiest method for initial setup:
 
 ```bash
 esphome dashboard .
 ```
 
-Open `http://localhost:6052` in Chrome or Edge.
+Open `http://localhost:6052` in your web browser.
 
-*   Connect the ESP32 via USB.
-*   Click **Install** on the desired node card, select **Plug into this computer**, and choose the COM port.
-*   (Note: You may need to hold the physical "BOOT" button on the ESP32 when the terminal shows `Connecting...`)
+**Steps:**
+1.  Connect ESP32 to your computer via USB
+2.  Click **Install** on the desired node card (Node 01, Node 02, etc.)
+3.  Select **"Plug into this computer"**
+4.  Choose the COM port (e.g., COM3, COM4)
+5.  If the progress bar stalls at "Connecting...", press and hold the **BOOT** button on the ESP32
+6.  Wait for the flash to complete
+7.  Node will restart automatically and attempt WiFi connection
 
-### Alternative: Flash via CLI
+#### 5. Verify WiFi Connection
+
+After successful flash, the ESP32 will:
+*   Attempt to connect to the SSID defined in `secrets.yaml`
+*   If connection fails, create a fallback AP: `"Sensor-Node-XX Fallback"`
+*   Display connection status in logs: `esphome logs <config_file>`
+
+#### 6. Flash Additional Nodes
+
+Repeat steps 1-5 for each additional node using the appropriate YAML file.
+
+#### Alternative: Command-Line Flash (CLI)
+
+For experienced users without Docker:
 
 ```bash
 esphome run esphome-sensor-node-01.yaml
 ```
 
-## Sensor Integration
+Select the COM port when prompted.
 
-Add sensor configurations to your node's YAML file.
+## Documentation
 
-#### Example: Temperature & Humidity (DHT11)
+*   [docs/Node01WiringGuide.md](docs/Node01WiringGuide.md) - Detailed wiring and pin configuration
+*   [docs/Display7Segments.md](docs/Display7Segments.md) - MAX7219 7-segment display setup
+*   [docs/TempSensorDHT11.md](docs/TempSensorDHT11.md) - DHT11/DHT22 sensor guide
+*   [docs/FanController.md](docs/FanController.md) - Fan control circuit documentation
 
-```yaml
-sensor:
-  - platform: dht
-    pin: 4
-    model: DHT11
-    temperature:
-      name: "Room Temperature"
-      id: temp_sensor
-    humidity:
-      name: "Room Humidity"
-      id: humidity_sensor
-    update_interval: 60s
-```
+## Support & Resources
 
-#### Example: OLED Display (SSD1306)
+*   **ESPHome Official:** https://esphome.io/
+*   **Home Assistant Community:** https://community.home-assistant.io/
+*   **ESPHome GitHub Issues:** https://github.com/esphome/issues
+*   **Material Design Icons:** https://materialdesignicons.com/
 
-To display data on a local display, add the `font` and `display` components. This example uses an SSD1306 I2C display and assumes the I2C bus is already configured.
+## Contributing
 
-```yaml
-font:
-  # Dual font configuration for bicolor displays (yellow/blue)
-  - file: "gfonts://Roboto"
-    id: font_header
-    size: 12
-  - file: "gfonts://Roboto"
-    id: font_data
-    size: 18
+Found a bug or want to improve this project? 
 
-display:
-  - platform: ssd1306_i2c
-    model: "SSD1306 128x64"
-    address: 0x3C
-    lambda: |-
-      it.print(0, 0, id(font_header), "ENVIRONMENTAL MONITOR");
-      if (id(temp_sensor).has_state()) {
-        it.printf(0, 20, id(font_data), "Temp: %.1f C", id(temp_sensor).state);
-      } else {
-        it.print(0, 20, id(font_data), "Temp: Reading...");
-      }
-      if (id(humidity_sensor).has_state()) {
-        it.printf(0, 42, id(font_data), "Umid: %.1f %%", id(humidity_sensor).state);
-      } else {
-        it.print(0, 42, id(font_data), "Umid: Reading...");
-      }
-```
-
-## Home Assistant Integration
-
-1.  Go to **Settings → Devices & Services** in Home Assistant.
-2.  The nodes should be auto-discovered via mDNS. Click **Configure**.
-3.  If not discovered, click **+ Add Integration**, search for "ESPHome", and enter the node's IP address.
-4.  Provide the `api_encryption_key` from your `secrets.yaml` when prompted.
-
-## Testing & Diagnostics
-
-### LED Blink Patterns (Test Mode)
-
-The built-in LED (GPIO 2) can be used for diagnostics:
-
-*   **Slow Blink** (1s on / 1s off): Normal operation / Boot successful
-*   **Fast Blink** (100ms on / 100ms off): Data transmission test
-*   **Alert Pattern** (200ms on/off): System alert state
-
-## Troubleshooting
-
-### Compilation Fails on Windows (C++ Linker / Cache Errors)
-
-If you add or remove major components (like sensors) and get `undefined reference` errors during compilation, clear the build cache:
-
-```bash
-esphome clean esphome-sensor-node-01.yaml
-```
-Then, run the install command again.
-
-### Device Not Connecting to WiFi
-
-*   Check SSID and password in `secrets.yaml`.
-*   Check router WiFi channel (try 1, 6, or 11 for 2.4GHz).
-*   Review serial logs: `esphome logs esphome-sensor-node-01.yaml`.
-
-### Home Assistant Not Discovering Device
-
-*   Ensure mDNS is working on your network.
-*   Verify the API encryption key matches exactly.
-
-## Advanced Features (Future)
-
-### Wireless Updates Over-The-Air (OTA)
-
-After the initial USB flash, all future updates can be done wirelessly via the Dashboard or CLI:
-
-```bash
-esphome run esphome-sensor-node-01.yaml --device <NODE_IP_ADDRESS>
-```
-
-### Automations
-
-```yaml
-automation:
-  - alias: "Alert on High Temperature"
-    trigger:
-      platform: numeric_state
-      entity_id: sensor.room_temperature
-      above: 30
-    action:
-      service: light.turn_on
-      entity_id: light.sensor_node_status_led
-      data:
-        effect: "Alert Pattern"
-```
+1. Test your changes locally
+2. Ensure all YAML files validate: `esphome config *.yaml`
+3. Document your changes clearly
+4. Submit a pull request with detailed description
 
 ## License
 
-This project is provided as-is for personal IoT home automation use.
+This project is provided as-is for personal IoT home automation use. See `LICENSE` file for details.
 
-**Last Updated:** March 2026
+---
+
+**Last Updated:** April 2026
 **ESPHome Version:** 2025.11.0+
 **Status:** Active Development

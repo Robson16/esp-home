@@ -59,7 +59,7 @@ display:
     num_chips: 1
     intensity: 7  # Medium brightness (0 to 15)
     lambda: |-
-      auto time = id(relogio_sntp).now();
+      auto time = id(sntp_clock).now();
       
       // Data validation for safety
       if (!time.is_valid() || !id(dht_temp_01).has_state()) {

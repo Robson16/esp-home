@@ -19,6 +19,8 @@ esp32:
   board: esp32dev
   framework:
     type: esp-idf
+    advanced:
+      minimum_chip_revision: "3.1"
 
 # ============================================================================
 # System Configuration & Network
@@ -65,11 +67,11 @@ font:
 
   - file: "gfonts://Roboto"
     id: font_data_large
-    size: 22 # Giant value to center on the screen
+    size: 20
 
   - file: "./fonts/materialdesignicons-webfont.ttf"
     id: font_icon_large
-    size: 34 # Well-highlighted icon
+    size: 28 # Well-highlighted icon
     glyphs:
       - "\U000F050F" # mdi-thermometer
       - "\U000F058E" # mdi-water-percent
@@ -82,9 +84,10 @@ font:
 # ============================================================================
 # Time Component (Internet Clock)
 # ============================================================================
+
 time:
   - platform: sntp
-    id: relogio_sntp
+    id: sntp_clock
     timezone: "America/Sao_Paulo"
 
 # ============================================================================
@@ -183,55 +186,87 @@ sensor:
     address: 0x76 # Change to 0x77 if not detected
     update_interval: 60s
 
-  # Flammable Gas Sensor (MQ-2) converted to Percentage
+  # ==========================================================================
+  # MQ-2 (Flammable Gas / LPG)
+  # ==========================================================================
+
   - platform: adc
     pin: 35
+    id: mq2_raw
+    internal: true
+    update_interval: 10s
+    attenuation: 12db
+
+  - platform: template
     name: "MQ-2 Gas Node 01"
     id: mq2_gas_01
+    unit_of_measurement: "ppm"
+    icon: "mdi:gas-burner"
     update_interval: 10s
-    attenuation: 12db
-    unit_of_measurement: "%"
-    filters:
-      - calibrate_linear:
-          - 0.17 -> 0.0
-          - 3.3 -> 100.0
-      - clamp:
-          min_value: 0
-          max_value: 100
+    lambda: |-
+      float r0 = 18.85; // R0 Real = 185.3 / 9.83
+      float rs = 10.0 * (5.0 / id(mq2_raw).state - 1.0);
+      float ratio = rs / r0;
+      float ppm = pow(10, (log10(ratio) - 0.21) / -0.47) * 1000.0;
 
-  # Carbon Monoxide Sensor (MQ-7) converted to Percentage
+      if (ppm < 30.0) return 0.0; 
+      return ppm;
+
+  # ==========================================================================
+  # MQ-7 (Carbon Monoxide - CO)
+  # ==========================================================================
+
   - platform: adc
     pin: 32
+    id: mq7_raw
+    internal: true
+    update_interval: 10s
+    attenuation: 12db
+
+  - platform: template
     name: "MQ-7 CO Node 01"
     id: mq7_co_01
+    unit_of_measurement: "ppm"
+    icon: "mdi:molecule-co"
     update_interval: 10s
-    attenuation: 12db
-    unit_of_measurement: "%"
-    filters:
-      - calibrate_linear:
-          - 0.21 -> 0.0
-          - 3.3 -> 100.0
-      - clamp:
-          min_value: 0
-          max_value: 100
+    lambda: |-
+      float r0 = 7.64; // R0 Real = 210.3 / 27.5
+      float rs = 10.0 * (5.0 / id(mq7_raw).state - 1.0);
+      float ratio = rs / r0;
+      float ppm = 100.0 * pow(ratio, -1.5);
 
-  # Air Quality Sensor (MQ-135) converted to Percentage
+      if (ppm < 2.0) return 0.0; 
+      return ppm;
+
+  # ==========================================================================
+  # MQ-135 (Air Quality / CO2)
+  # ==========================================================================
+
   - platform: adc
     pin: 33
-    name: "MQ-135 Air Quality Node 01"
-    id: mq135_gas_01
+    id: mq135_raw
+    internal: true
     update_interval: 10s
     attenuation: 12db
-    unit_of_measurement: "%"
-    filters:
-      - calibrate_linear:
-          - 0.21 -> 0.0
-          - 3.3 -> 100.0
-      - clamp:
-          min_value: 0
-          max_value: 100
 
+  - platform: template
+    name: "MQ-135 Air Quality Node 01"
+    id: mq135_gas_01
+    unit_of_measurement: "ppm"
+    icon: "mdi:molecule-co2"
+    update_interval: 10s
+    lambda: |-
+      float r0 = 128.20; // R0 Real = 1282.0 / 10.0 (ppm of CO2 in ambient air)
+      float rs = 10.0 * (5.0 / id(mq135_raw).state - 1.0);
+      float ratio = rs / r0;
+      float ppm = 116.6 * pow(ratio, -2.769);
+
+      return ppm;
+
+  # ==========================================================================
   # Luminosity sensor (ADC)
+  # ==========================================================================
+
   - platform: adc
     pin: 34
     name: "Luminosity Node 01"
@@ -264,9 +299,8 @@ display:
           it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "TEMPERATURE");
 
           if (id(dht_temp_01).has_state()) {
-            // Icon and data lowered to the blue band (if using a yellow/blue OLED)
             it.print(10, 20, id(font_icon_large), "\U000F050F"); // mdi-thermometer
-            it.printf(55, 25, id(font_data_large), "%.1f°C", id(dht_temp_01).state);
+            it.printf(50, 25, id(font_data_large), "%.1f°C", id(dht_temp_01).state);
           }
 
       # PAGE 2: Humidity
@@ -276,7 +310,7 @@ display:
 
           if (id(humidity_01).has_state()) {
             it.print(10, 20, id(font_icon_large), "\U000F058E"); // mdi-water-percent
-            it.printf(55, 25, id(font_data_large), "%.1f%%", id(humidity_01).state);
+            it.printf(50, 25, id(font_data_large), "%.1f%%", id(humidity_01).state);
           }
 
       # PAGE 3: Pressure
@@ -286,7 +320,7 @@ display:
 
           if (id(bmp_pressure_01).has_state()) {
             it.print(5, 20, id(font_icon_large), "\U000F029A"); // mdi-gauge
-            it.printf(50, 25, id(font_data_large), "%.0f", id(bmp_pressure_01).state);
+            it.printf(50, 25, id(font_data_large), "%.0f hPa", id(bmp_pressure_01).state);
           }
 
       # PAGE 4: Luminosity
@@ -296,7 +330,7 @@ display:
 
           if (id(light_sensor_01).has_state()) {
             it.print(10, 20, id(font_icon_large), "\U000F00DF"); // mdi-brightness
-            it.printf(55, 25, id(font_data_large), "%.0f%%", id(light_sensor_01).state);
+            it.printf(50, 25, id(font_data_large), "%.0f%%", id(light_sensor_01).state);
           }
 
       # PAGE 5: MQ-2 Gas/Smoke
@@ -306,7 +340,7 @@ display:
 
           if (id(mq2_gas_01).has_state()) {
             it.print(10, 20, id(font_icon_large), "\U000F1A1B"); // mdi-gas-burner
-            it.printf(55, 25, id(font_data_large), "%.1f%%", id(mq2_gas_01).state);
+            it.printf(50, 25, id(font_data_large), "%.0f ppm", id(mq2_gas_01).state);
           }
 
       # PAGE 6: MQ-7 CO
@@ -316,7 +350,7 @@ display:
 
           if (id(mq7_co_01).has_state()) {
             it.print(10, 20, id(font_icon_large), "\U000F12FE"); // mdi-molecule-co
-            it.printf(55, 25, id(font_data_large), "%.1f%%", id(mq7_co_01).state);
+            it.printf(50, 25, id(font_data_large), "%.0f ppm", id(mq7_co_01).state);
           }      
 
       # PAGE 7: MQ-135 Air Quality
@@ -326,7 +360,7 @@ display:
 
           if (id(mq135_gas_01).has_state()) {
             it.print(10, 20, id(font_icon_large), "\U000F07E4"); // mdi-molecule-co2
-            it.printf(55, 25, id(font_data_large), "%.1f%%", id(mq135_gas_01).state);
+            it.printf(50, 25, id(font_data_large), "%.0f ppm", id(mq135_gas_01).state);
           }
 
   # --- Display 2: 7-Segment MAX7219 (Numeric) ---
@@ -336,7 +370,7 @@ display:
     intensity: 0 # <--- Change this number (from 0 to 15) to adjust brightness
     id: led_7seg
     lambda: |-
-      auto time = id(relogio_sntp).now();
+      auto time = id(sntp_clock).now();
 
       // If time or temperature is not ready, show placeholders
       if (!time.is_valid() || !id(dht_temp_01).has_state()) {
@@ -349,10 +383,11 @@ display:
       it.printf("%2.1fC%02d.%02d", id(dht_temp_01).state, time.hour, time.minute);
 
 # ============================================================================
-# Automation (Rotates OLED pages every 8 seconds)
+# Automation (Rotates OLED pages every 5 seconds)
 # ============================================================================
+
 interval:
-  - interval: 8s
+  - interval: 5s
     then:
       - display.page.show_next: my_oled_display
       - component.update: my_oled_display
