@@ -80,6 +80,8 @@ font:
       - "\U000F1A1B" # mdi-gas-burner
       - "\U000F12FE" # mdi-molecule-co
       - "\U000F07E4" # mdi-molecule-co2
+      - "\U000F043F" # mdi-raspberry-pi
+      - "\U000F035B" # mdi-memory
 
 # ============================================================================
 # Time Component (Internet Clock)
@@ -163,6 +165,34 @@ script:
 # ============================================================================
 
 sensor:
+  # Node Pi 01 (.101 - Master)
+  - platform: homeassistant
+    id: node01_cpu_temp
+    entity_id: sensor.pi_master_cpu_thermal_0_temperature
+    internal: true
+  - platform: homeassistant
+    id: node01_cpu_usage
+    entity_id: sensor.192_168_1_101_cpu_usage
+    internal: true
+  - platform: homeassistant
+    id: node01_ram_usage
+    entity_id: sensor.192_168_1_101_memory_usage
+    internal: true
+
+  # Node Pi 02 (.102 - Worker)
+  - platform: homeassistant
+    id: node02_cpu_temp
+    entity_id: sensor.192_168_1_102_cpu_thermal_0_temperature
+    internal: true
+  - platform: homeassistant
+    id: node02_cpu_usage
+    entity_id: sensor.192_168_1_102_cpu_usage
+    internal: true
+  - platform: homeassistant
+    id: node02_ram_usage
+    entity_id: sensor.192_168_1_102_memory_usage
+    internal: true
+
   # Temperature & Humidity (DHT22)
   - platform: dht
     pin: 4
@@ -361,6 +391,32 @@ display:
           if (id(mq135_gas_01).has_state()) {
             it.print(10, 20, id(font_icon_large), "\U000F07E4"); // mdi-molecule-co2
             it.printf(50, 25, id(font_data_large), "%.0f ppm", id(mq135_gas_01).state);
+          }
+
+      # PAGE 8: Cluster Health - PI NODE 01
+      - id: page8
+        lambda: |-
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "PI NODE 01 (MASTER)");
+
+          if (id(node01_cpu_temp).has_state()) {
+            it.printf(0, 16, id(font_data), "CPU Temp: %.1fC", id(node01_cpu_temp).state);
+            it.printf(0, 32, id(font_data), "CPU Load: %.0f%%", id(node01_cpu_usage).state);
+            it.printf(0, 48, id(font_data), "RAM Use : %.0f%%", id(node01_ram_usage).state);
+          } else {
+            it.printf(64, 32, id(font_data), TextAlign::CENTER, "Node 01 Offline");
+          }
+
+      # PAGE 9: Cluster Health - PI NODE 02
+      - id: page9
+        lambda: |-
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "PI NODE 02 (WORKER)");
+
+          if (id(node02_cpu_temp).has_state()) {
+            it.printf(0, 16, id(font_data), "CPU Temp: %.1fC", id(node02_cpu_temp).state);
+            it.printf(0, 32, id(font_data), "CPU Load: %.0f%%", id(node02_cpu_usage).state);
+            it.printf(0, 48, id(font_data), "RAM Use : %.0f%%", id(node02_ram_usage).state);
+          } else {
+            it.printf(64, 32, id(font_data), TextAlign::CENTER, "Node 02 Offline");
           }
 
   # --- Display 2: 7-Segment MAX7219 (Numeric) ---

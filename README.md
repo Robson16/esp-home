@@ -10,29 +10,27 @@ This project manages a distributed IoT sensor network using ESP32 microcontrolle
 ┌────────────────────────────────────────────────────────────┐
 │                    Home Assistant                          │
 │          (Raspberry Pi Docker Swarm - Central Hub)         │
-└──────┬──────────────────────────────┬──────────────────────┘
-       │                              │
-       │                              │
-┌──────▼──────────────────┐   ┌──────▼──────────────────────┐
-│   Sensor Node 01        │   │   Sensor Node 02            │
-│   (Bedroom Monitor)     │   │   (Cluster Monitor OLED)    │
-│  - DHT22 Temp/Humidity  │   │  - BMP280 Temp/Pressure    │
-│  - BMP280 Pressure      │   │  - Remote Pi CPU Temp      │
-│  - MQ-2 Flammable Gas   │   │  - Remote Pi CPU Usage     │
-│  - MQ-7 Carbon Monoxide │   │  - Remote Pi RAM Usage     │
-│  - MQ-135 Air Quality   │   │  - Dual Fan Control        │
-│  - LDR Brightness       │   │  - Hysteresis Logic        │
-│  - PIR Motion Sensor    │   │  (Alternative: LCD 1602)   │
-│  - OLED Display 128x64  │   │  - OLED Display 128x64     │
-│  - 7-Segment MAX7219    │   │  - Time/Date Display       │
-└─────────────────────────┘   └────────────────────────────┘
+└──────┬──────────────────────┬───────────────────────────────┘
+       │                      │
+       │                      │
+┌──────▼──────────────────┐   ┌───────────────────────────────┐
+│   Sensor Node 01        │   │   Sensor Node 02              │
+│   (Gas + Clock + Stats) │   │   (Environmental OLED Display) │
+│  - DHT22 Temp/Humidity  │   │  - BMP280 Temp/Pressure       │
+│  - MQ-2 Flammable Gas   │   │  - DHT22 Temp/Humidity        │
+│  - MQ-7 Carbon Monoxide │   │  - OLED Display 128x64        │
+│  - MQ-135 Air Quality   │   │  - Brightness                 │
+│  - LDR Brightness       │   │                               │
+│  - PIR Motion Sensor    │   │                               │
+│  - OLED + 7-Segment     │   │                               │
+│  - Cluster Health Stats │   │                               │
+└─────────────────────────┘   └───────────────────────────────┘
 ```
 
 ### Components
 
-*   **Sensor Node 01** (`esphome-sensor-node-01.yaml`): Comprehensive bedroom environmental sensor with multi-parameter monitoring and dual display outputs.
-*   **Sensor Node 02** (`esphome-sensor-node-02.yaml`): LCD-based cluster monitor for Raspberry Pi infrastructure with temperature-controlled fan management.
-*   **Sensor Node 02 OLED** (`esphome-sensor-node-02-oled.yaml`): OLED variant for remote Pi monitoring with scheduled display automation.
+*   **Sensor Node 01** (`esphome-sensor-node-01.yaml`): Gas sensor and statistics display node with clock, OLED and 7-segment readouts.
+*   **Sensor Node 02** (`esphome-sensor-node-02.yaml`): Environmental monitor node with OLED display for temperature, humidity, pressure and brightness.
 
 #### Current Features
 
@@ -40,13 +38,12 @@ This project manages a distributed IoT sensor network using ESP32 microcontrolle
 *   **Integration:** Native Home Assistant API with encryption
 *   **Web Access:** Built-in web server on port 80 for local interface
 *   **Diagnostics:** Status LED (GPIO 2) with motion-triggered alerts
-*   **Local Display:** OLED and numeric 7-segment displays for real-time readout
+*   **Local Display:** Node 01 uses OLED and numeric 7-segment displays; Node 02 uses OLED for environmental data.
 *   **Updates:** Secure OTA (Over-The-Air) wireless updates after initial flash
-*   **Environmental Sensing:** Temperature, humidity, pressure, air quality (gas), brightness, and motion detection
-*   **Remote Monitoring:** Home Assistant sensor integration for remote infrastructure monitoring
-*   **Smart Control:** Multi-stage hysteresis fan control with temperature thresholds
+*   **Environmental Sensing:** Node 01 tracks gas, temperature, humidity, pressure, brightness and motion; Node 02 tracks temperature, humidity, pressure and brightness.
+*   **Remote Monitoring:** Home Assistant sensor integration for node and system status
 *   **Time Sync:** SNTP internet clock with timezone support
-*   **Automation:** Scheduled display on/off (07:00 AM - 06:00 PM)
+*   **Automation:** OLED page rotation every 5 seconds on both nodes
 
 ### Technical Specs
 
@@ -65,9 +62,8 @@ This project manages a distributed IoT sensor network using ESP32 microcontrolle
 
 ```text
 esp-home/
-├── esphome-sensor-node-01.yaml       # Node 1: Bedroom environmental sensor
-├── esphome-sensor-node-02.yaml       # Node 2: LCD cluster monitor
-├── esphome-sensor-node-02-oled.yaml  # Node 2: OLED cluster monitoring
+├── esphome-sensor-node-01.yaml       # Node 1: Gas sensor and statistics display node
+├── esphome-sensor-node-02.yaml       # Node 2: Environmental monitor with OLED display
 ├── secrets.yaml                      # WiFi and API credentials (not versioned)
 ├── LICENSE                           # Project license
 ├── README.md                         # This file

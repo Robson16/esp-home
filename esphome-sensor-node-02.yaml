@@ -1,13 +1,15 @@
 # ============================================================================
 # ESPHome Configuration - Sensor Node 02
-# Raspberry Pi Cluster Monitor
+# Role: Environmental Monitor (Node 2)
 # ============================================================================
 
 esphome:
   name: sensor-node-02
   friendly_name: Sensor Node 02
-  comment: "Raspberry Cluster Monitor"
-  min_version: 2025.11.0
+  # on_boot:
+  #   priority: -100
+  #   then:
+  #     - script.execute: display_timer
 
 esp32:
   board: esp32dev
@@ -16,10 +18,7 @@ esp32:
     advanced:
       minimum_chip_revision: "3.1"
 
-# ============================================================================
-# System Configuration
-# ============================================================================
-
+# --- System ---
 logger:
   level: INFO
   baud_rate: 115200
@@ -36,158 +35,117 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
-  # Fallback AP for recovery if WiFi connection fails
-  ap:
-    ssid: "Sensor-Node-02 Fallback"
-    password: !secret node_fallback_ap_password
-
-captive_portal:
-
-web_server:
-  port: 80
-
-# ============================================================================
-# Time Component (Internet Clock & LCD Automation)
-# ============================================================================
-
-time:
-  - platform: sntp
-    id: time_sntp
-    timezone: "America/Sao_Paulo"
-    on_time:
-      # --- TURN ON TRIGGER (07:00 AM) ---
-      - seconds: 0
-        minutes: 0
-        hours: 7
-        then:
-          - lambda: "id(lcd_display).backlight();"
-          - switch.turn_on: virtual_lcd_backlight
-
-      # --- TURN OFF TRIGGER (06:00 PM) ---
-      - seconds: 0
-        minutes: 0
-        hours: 18
-        then:
-          - lambda: "id(lcd_display).no_backlight();"
-          - switch.turn_off: virtual_lcd_backlight
-
-# ============================================================================
-# Hardware Protocols
-# ============================================================================
-
 i2c:
   sda: 21
   scl: 22
   scan: true
 
-# ============================================================================
-# GPIO Switches (Coolers & Virtual Backlight)
-# ============================================================================
+time:
+  - platform: sntp
+    id: time_sntp
+    timezone: "America/Sao_Paulo"
 
-switch:
-  # GPIO 5: Cooler 01 (Primary Exhaust)
+# --- Fonts ---
+font:
+  - file: "gfonts://Roboto"
+    id: font_header
+    size: 12
+  - file: "gfonts://Roboto"
+    id: font_data
+    size: 14
+  - file: "gfonts://Roboto"
+    id: font_data_large
+    size: 18
+  - file: "./fonts/materialdesignicons-webfont.ttf"
+    id: font_icon
+    size: 24
+    glyphs:
+      - "\U000F050F" # mdi-thermometer
+      - "\U000F058E" # mdi-water-percent
+      - "\U000F029A" # mdi-gauge
+      - "\U000F00DF" # mdi-brightness
+
+# --- Binary Sensors & Scripts ---
+binary_sensor:
   - platform: gpio
-    pin: 5
-    name: "Output Cooler 01"
-    id: output_cooler_fan_01
-    icon: "mdi:fan"
+    pin: 27
+    name: "Presence Node 02"
+    id: presence_sensor_02
+    device_class: motion
+    # on_press:
+    #   then:
+    #     - script.execute: display_timer
 
-  # GPIO 18: Cooler 02 (Secondary Exhaust)
-  - platform: gpio
-    pin: 18
-    name: "Output Cooler 02"
-    id: output_cooler_fan_02
-    icon: "mdi:fan"
+    # script:
+    #   - id: display_timer
+    #     mode: restart
+    #     then:
+    #       - lambda: "id(oled_display).turn_on();"
+    #       - delay: 1min
+    #       - lambda: "id(oled_display).turn_off();"
 
-  # Virtual Switch for LCD Backlight via Home Assistant
-  - platform: template
-    name: "Cluster Display Backlight"
-    id: virtual_lcd_backlight
-    icon: "mdi:monitor-shimmer"
-    optimistic: true
-    turn_on_action:
-      - lambda: "id(lcd_display).backlight();"
-    turn_off_action:
-      - lambda: "id(lcd_display).no_backlight();"
-
-# ============================================================================
-# Sensor Components (Multi-Stage Hysteresis)
-# ============================================================================
-
+    # --- Environmental Sensors ---
 sensor:
-  # BMP280 Temp/Pressure Sensor
+  # DHT22 (Temp/Humid)
+  - platform: dht
+    pin: 4
+    model: DHT22
+    temperature:
+      name: "DHT Temp Node 02"
+      id: dht_temp_02
+    humidity:
+      name: "Humidity Node 02"
+      id: humidity_02
+    update_interval: 30s
+
+  # BMP280 (Temp/Pressure)
   - platform: bmp280_i2c
     address: 0x76
-    update_interval: 10s
-    pressure:
-      name: "Cluster Pressure"
-      id: cluster_pressure
     temperature:
-      name: "Cluster Temperature"
-      id: cluster_temp
-      on_value:
-        then:
-          # --- ACCELERATION TRIGGERS (HEATING UP) ---
+      name: "BMP Temp Node 02"
+      id: bmp_temp_02
+    pressure:
+      name: "Pressure Node 02"
+      id: bmp_pressure_02
+    update_interval: 30s
 
-          # Stage 1 (Moderate): Turn on Primary Cooler
-          - if:
-              condition:
-                lambda: "return x >= 35.0;"
-              then:
-                - switch.turn_on: output_cooler_fan_01
+  # Luminosity (LDR)
+  - platform: adc
+    pin: 34
+    name: "Luminosity Node 02"
+    id: luminosity_02
+    unit_of_measurement: "%"
+    filters:
+      - calibrate_linear:
+          - 0.0 -> 100.0
+          - 3.3 -> 0.0
+    update_interval: 10s
 
-          # Stage 2 (Hot): Turn on Secondary Cooler
-          - if:
-              condition:
-                lambda: "return x >= 40.0;"
-              then:
-                - switch.turn_on: output_cooler_fan_02
-
-          # --- DECELERATION TRIGGERS (COOLING DOWN) ---
-
-          # Temperature dropped slightly, turn off Secondary Cooler
-          - if:
-              condition:
-                lambda: "return x <= 38.0;"
-              then:
-                - switch.turn_off: output_cooler_fan_02
-
-          # Temperature stabilized, turn off Primary Cooler
-          - if:
-              condition:
-                lambda: "return x <= 32.0;"
-              then:
-                - switch.turn_off: output_cooler_fan_01
-
-# ============================================================================
-# Display (LCD 1602 I2C)
-# ============================================================================
-
+# --- Display OLED ---
 display:
-  - platform: lcd_pcf8574
-    dimensions: 16x2
-    address: 0x27
-    id: lcd_display
-    lambda: |-
-      // Row 0: Temperature
-      if (id(cluster_temp).has_state()) {
-        it.printf(0, 0, "Tmp:%.1fC", id(cluster_temp).state);
-      } else {
-        it.print(0, 0, "Tmp:---");
-      }
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3c
+    id: oled_display
+    pages:
+      - id: page1
+        lambda: |-
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "ENVIRONMENT");
+          it.print(0, 18, id(font_icon), "\U000F050F"); 
+          it.printf(30, 20, id(font_data_large), "%.1f°C", id(bmp_temp_02).state);
+          it.print(0, 44, id(font_icon), "\U000F058E");
+          it.printf(30, 46, id(font_data), "Hum: %.1f%%", id(humidity_02).state);
 
-      // Row 0: Dynamic Fan Status (0, 1, or 2)
-      if (id(output_cooler_fan_01).state && id(output_cooler_fan_02).state) {
-        it.print(10, 0, "FAN: 2");
-      } else if (id(output_cooler_fan_01).state) {
-        it.print(10, 0, "FAN: 1");
-      } else {
-        it.print(10, 0, "FAN: 0");
-      }
+      - id: page2
+        lambda: |-
+          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "ATMOSPHERE");
+          it.print(0, 18, id(font_icon), "\U000F029A");
+          it.printf(30, 20, id(font_data), "Pres: %.0f hPa", id(bmp_pressure_02).state);
+          it.print(0, 44, id(font_icon), "\U000F00DF");
+          it.printf(30, 46, id(font_data), "Light: %.0f%%", id(luminosity_02).state);
 
-      // Row 1: Clock
-      if (id(time_sntp).now().is_valid()) {
-        it.strftime(11, 1, "%H:%M", id(time_sntp).now());
-      } else {
-        it.print(11, 1, "--:--");
-      }
+interval:
+  - interval: 5s
+    then:
+      - display.page.show_next: oled_display
+      - component.update: oled_display
