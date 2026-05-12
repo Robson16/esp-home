@@ -13,6 +13,8 @@ esphome:
   on_boot:
     priority: -100
     then:
+      # Ensure the brightness is updated as soon as the device powers on
+      - component.update: light_sensor_01
       - script.execute: display_timer
 
 esp32:
@@ -46,8 +48,6 @@ wifi:
   ap:
     ssid: "Sensor-Node-01 Fallback"
     password: !secret node_fallback_ap_password
-
-captive_portal:
 
 web_server:
   port: 80
@@ -110,23 +110,6 @@ spi:
   mosi_pin: 23
 
 # ============================================================================
-# GPIO Outputs & Status LEDs
-# ============================================================================
-
-output:
-  # GPIO 2: Status LED (for testing/diagnostics)
-  - platform: gpio
-    pin: 2
-    id: status_led_output
-
-light:
-  - platform: binary
-    name: "Sensor Node 01 Status LED"
-    output: status_led_output
-    id: node_01_led
-    icon: mdi:led-on
-
-# ============================================================================
 # Binary Sensors & Automations
 # ============================================================================
 
@@ -140,11 +123,7 @@ binary_sensor:
     # Action when motion is detected
     on_press:
       then:
-        # 1. Flash the internal blue LED for 200ms
-        - light.turn_on: node_01_led
-        - delay: 200ms
-        - light.turn_off: node_01_led
-        # 2. Start or reset the display timeout script
+        # Start or reset the display timeout script
         - script.execute: display_timer
 
 # ============================================================================
@@ -225,7 +204,7 @@ sensor:
     id: mq2_raw
     internal: true
     update_interval: 10s
-    attenuation: 12db
+    attenuation: 12dB
 
   - platform: template
     name: "MQ-2 Gas Node 01"
@@ -235,11 +214,16 @@ sensor:
     update_interval: 10s
     lambda: |-
       float r0 = 18.85; // R0 Real = 185.3 / 9.83
+      float voltage = id(mq2_raw).state;
+
+      if (voltage < 0.01) return 0.0;
+
       float rs = 10.0 * (5.0 / id(mq2_raw).state - 1.0);
       float ratio = rs / r0;
       float ppm = pow(10, (log10(ratio) - 0.21) / -0.47) * 1000.0;
 
-      if (ppm < 30.0) return 0.0; 
+      if (ppm < 30.0) return 0.0;
+
       return ppm;
 
   # ==========================================================================
@@ -311,6 +295,17 @@ sensor:
       - clamp:
           min_value: 0
           max_value: 100
+    # Automação para ajustar o brilho do display de 7 segmentos
+    on_value:
+      then:
+        - lambda: |-
+            int brightness = (int) round(x / 100.0 * 15.0);
+
+            // Garante limite válido
+            if (brightness < 0) brightness = 0;
+            if (brightness > 15) brightness = 15;
+
+            id(led_7seg).set_intensity(brightness);
 
 # ============================================================================
 # Displays (OLED I2C & MAX7219 SPI)
@@ -381,7 +376,7 @@ display:
           if (id(mq7_co_01).has_state()) {
             it.print(10, 20, id(font_icon_large), "\U000F12FE"); // mdi-molecule-co
             it.printf(50, 25, id(font_data_large), "%.0f ppm", id(mq7_co_01).state);
-          }      
+          }
 
       # PAGE 7: MQ-135 Air Quality
       - id: page7
@@ -423,20 +418,22 @@ display:
   - platform: max7219
     cs_pin: 5
     num_chips: 1
-    intensity: 0 # <--- Change this number (from 0 to 15) to adjust brightness
+    intensity: 5 # <--- Change this number (from 0 to 15) to adjust brightness
     id: led_7seg
     lambda: |-
       auto time = id(sntp_clock).now();
-
-      // If time or temperature is not ready, show placeholders
-      if (!time.is_valid() || !id(dht_temp_01).has_state()) {
-        it.print("--C --.--");
+      if (!time.is_valid()) {
+        it.print("--------");
         return;
       }
-
-      // Fixed display: XX.XC (4 digits) + HH.MM (4 digits) 
-      // Result format: "25.4C18.05"
-      it.printf("%2.1fC%02d.%02d", id(dht_temp_01).state, time.hour, time.minute);
+      // Faz os separadores piscarem a cada segundo para um relógio mais dinâmico.
+      if (time.second % 2 == 0) {
+        // Em segundos pares, mostra os pontos como separadores.
+        it.printf("%02d. %02d. %02d.", time.hour, time.minute, time.second);
+      } else {
+        // Em segundos ímpares, mostra espaços. Isso cria o efeito de piscar.
+        it.printf("%02d %02d %02d", time.hour, time.minute, time.second);
+      }
 
 # ============================================================================
 # Automation (Rotates OLED pages every 5 seconds)
