@@ -6,10 +6,6 @@
 esphome:
   name: sensor-node-02
   friendly_name: Sensor Node 02
-  # on_boot:
-  #   priority: -100
-  #   then:
-  #     - script.execute: display_timer
 
 esp32:
   board: esp32dev
@@ -18,7 +14,10 @@ esp32:
     advanced:
       minimum_chip_revision: "3.1"
 
-# --- System ---
+# ============================================================================
+# System Configuration & Network
+# ============================================================================
+
 logger:
   level: INFO
   baud_rate: 115200
@@ -35,6 +34,16 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
+  output_power: 8.5dBm # Reduce power to minimize interference with other devices
+
+  # Fallback AP for recovery if WiFi connection fails
+  ap:
+    ssid: "Sensor-Node-02 Fallback"
+    password: !secret node_fallback_ap_password
+
+web_server:
+  port: 80
+
 i2c:
   sda: 21
   scl: 22
@@ -45,7 +54,10 @@ time:
     id: time_sntp
     timezone: "America/Sao_Paulo"
 
-# --- Fonts ---
+# ============================================================================
+# Fonts & Icons Configuration
+# ============================================================================
+
 font:
   - file: "gfonts://Roboto"
     id: font_header
@@ -65,87 +77,57 @@ font:
       - "\U000F029A" # mdi-gauge
       - "\U000F00DF" # mdi-brightness
 
-# --- Binary Sensors & Scripts ---
-binary_sensor:
-  - platform: gpio
-    pin: 27
-    name: "Presence Node 02"
-    id: presence_sensor_02
-    device_class: motion
-    # on_press:
-    #   then:
-    #     - script.execute: display_timer
+# ============================================================================
+# Binary Sensors & Scripts
+# ============================================================================
 
-    # script:
-    #   - id: display_timer
-    #     mode: restart
-    #     then:
-    #       - lambda: "id(oled_display).turn_on();"
-    #       - delay: 1min
-    #       - lambda: "id(oled_display).turn_off();"
+# binary_sensor:
+#   - platform: gpio
+#     pin: 27
+#     name: "Presence Node 02"
+#     id: presence_sensor_02
+#     device_class: motion
 
-    # --- Environmental Sensors ---
+# ============================================================================
+# Sensor Components
+# ============================================================================
+
 sensor:
-  # DHT22 (Temp/Humid)
+  # DHT22 (Temperature/Humidity)
   - platform: dht
     pin: 4
     model: DHT22
     temperature:
-      name: "DHT Temp Node 02"
-      id: dht_temp_02
+      name: "DHT Temperature Node 02"
+      id: dht_temperature_02
     humidity:
-      name: "Humidity Node 02"
-      id: humidity_02
-    update_interval: 30s
+      name: "DHT Humidity Node 02"
+      id: dht_humidity_02
+    update_interval: 60s
 
-  # BMP280 (Temp/Pressure)
-  - platform: bmp280_i2c
-    address: 0x76
-    temperature:
-      name: "BMP Temp Node 02"
-      id: bmp_temp_02
-    pressure:
-      name: "Pressure Node 02"
-      id: bmp_pressure_02
-    update_interval: 30s
+  # BMP280 (Temperature/Pressure)
+  # - platform: bmp280_i2c
+  #   address: 0x76
+  #   temperature:
+  #     name: "BMP Temperature Node 02"
+  #     id: bmp_temperature_02
+  #   pressure:
+  #     name: "BMP Pressure Node 02"
+  #     id: bmp_pressure_02
+  #   update_interval: 30s
 
   # Luminosity (LDR)
   - platform: adc
     pin: 34
     name: "Luminosity Node 02"
-    id: luminosity_02
+    id: light_sensor_02
+    update_interval: 60s
+    attenuation: 12db
     unit_of_measurement: "%"
     filters:
       - calibrate_linear:
           - 0.0 -> 100.0
           - 3.3 -> 0.0
-    update_interval: 10s
-
-# --- Display OLED ---
-display:
-  - platform: ssd1306_i2c
-    model: "SSD1306 128x64"
-    address: 0x3c
-    id: oled_display
-    pages:
-      - id: page1
-        lambda: |-
-          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "ENVIRONMENT");
-          it.print(0, 18, id(font_icon), "\U000F050F"); 
-          it.printf(30, 20, id(font_data_large), "%.1f°C", id(bmp_temp_02).state);
-          it.print(0, 44, id(font_icon), "\U000F058E");
-          it.printf(30, 46, id(font_data), "Hum: %.1f%%", id(humidity_02).state);
-
-      - id: page2
-        lambda: |-
-          it.printf(64, 0, id(font_header), TextAlign::TOP_CENTER, "ATMOSPHERE");
-          it.print(0, 18, id(font_icon), "\U000F029A");
-          it.printf(30, 20, id(font_data), "Pres: %.0f hPa", id(bmp_pressure_02).state);
-          it.print(0, 44, id(font_icon), "\U000F00DF");
-          it.printf(30, 46, id(font_data), "Light: %.0f%%", id(luminosity_02).state);
-
-interval:
-  - interval: 5s
-    then:
-      - display.page.show_next: oled_display
-      - component.update: oled_display
+      - clamp:
+          min_value: 0
+          max_value: 100
