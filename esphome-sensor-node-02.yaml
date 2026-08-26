@@ -1,11 +1,18 @@
 # ============================================================================
 # ESPHome Configuration - Sensor Node 02
-# Role: Environmental Monitor (Node 2)
+# Role: Electronics box temperature monitor with dual 5V coolers
 # ============================================================================
 
 esphome:
   name: sensor-node-02
   friendly_name: Sensor Node 02
+  comment: "Electronics box temperature monitor with dual 5V coolers"
+  min_version: 2025.11.0
+  on_boot:
+    priority: -100
+    then:
+      - switch.turn_off: cooler_1
+      - switch.turn_off: cooler_2
 
 esp32:
   board: esp32dev
@@ -33,16 +40,19 @@ ota:
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
-
-  output_power: 8.5dBm # Reduce power to minimize interference with other devices
-
-  # Fallback AP for recovery if WiFi connection fails
+  output_power: 8.5dBm
   ap:
     ssid: "Sensor-Node-02 Fallback"
     password: !secret node_fallback_ap_password
 
+captive_portal:
+
 web_server:
   port: 80
+
+# ============================================================================
+# Hardware Protocols
+# ============================================================================
 
 i2c:
   sda: 21
@@ -55,79 +65,85 @@ time:
     timezone: "America/Sao_Paulo"
 
 # ============================================================================
-# Fonts & Icons Configuration
+# Cooling Outputs
 # ============================================================================
 
-font:
-  - file: "gfonts://Roboto"
-    id: font_header
-    size: 12
-  - file: "gfonts://Roboto"
-    id: font_data
-    size: 14
-  - file: "gfonts://Roboto"
-    id: font_data_large
-    size: 18
-  - file: "./fonts/materialdesignicons-webfont.ttf"
-    id: font_icon
-    size: 24
-    glyphs:
-      - "\U000F050F" # mdi-thermometer
-      - "\U000F058E" # mdi-water-percent
-      - "\U000F029A" # mdi-gauge
-      - "\U000F00DF" # mdi-brightness
+output:
+  - platform: gpio
+    pin: GPIO25
+    id: cooler_1_output
+  - platform: gpio
+    pin: GPIO26
+    id: cooler_2_output
 
-# ============================================================================
-# Binary Sensors & Scripts
-# ============================================================================
+switch:
+  - platform: output
+    name: "Box Cooler 01"
+    id: cooler_1
+    output: cooler_1_output
+    restore_mode: ALWAYS_OFF
 
-# binary_sensor:
-#   - platform: gpio
-#     pin: 27
-#     name: "Presence Node 02"
-#     id: presence_sensor_02
-#     device_class: motion
+  - platform: output
+    name: "Box Cooler 02"
+    id: cooler_2
+    output: cooler_2_output
+    restore_mode: ALWAYS_OFF
 
 # ============================================================================
 # Sensor Components
 # ============================================================================
 
 sensor:
-  # DHT22 (Temperature/Humidity)
-  - platform: dht
-    pin: 4
-    model: DHT22
+  - platform: bmp280_i2c
+    address: 0x76
     temperature:
-      name: "DHT Temperature Node 02"
-      id: dht_temperature_02
-    humidity:
-      name: "DHT Humidity Node 02"
-      id: dht_humidity_02
-    update_interval: 60s
+      name: "Box Temperature"
+      id: box_temperature
+      accuracy_decimals: 1
+    pressure:
+      name: "Box Pressure"
+      id: box_pressure
+    update_interval: 30s
 
-  # BMP280 (Temperature/Pressure)
-  # - platform: bmp280_i2c
-  #   address: 0x76
-  #   temperature:
-  #     name: "BMP Temperature Node 02"
-  #     id: bmp_temperature_02
-  #   pressure:
-  #     name: "BMP Pressure Node 02"
-  #     id: bmp_pressure_02
-  #   update_interval: 30s
+text_sensor:
+  - platform: template
+    name: "Box Cooling Mode"
+    id: box_cooling_mode
+    update_interval: 10s
+    lambda: |-
+      if (id(box_temperature).state >= 42.0) {
+        return {"HIGH"};
+      } else if (id(box_temperature).state >= 34.0) {
+        return {"MEDIUM"};
+      } else {
+        return {"OFF"};
+      }
 
-  # Luminosity (LDR)
-  - platform: adc
-    pin: 34
-    name: "Luminosity Node 02"
-    id: light_sensor_02
-    update_interval: 60s
-    attenuation: 12db
-    unit_of_measurement: "%"
-    filters:
-      - calibrate_linear:
-          - 0.0 -> 100.0
-          - 3.3 -> 0.0
-      - clamp:
-          min_value: 0
-          max_value: 100
+# ============================================================================
+# Cooling Logic
+# ============================================================================
+
+script:
+  - id: update_cooling_strategy
+    then:
+      - if:
+          condition:
+            lambda: "return id(box_temperature).state >= 42.0;"
+          then:
+            - switch.turn_on: cooler_1
+            - switch.turn_on: cooler_2
+          else:
+            - if:
+                condition:
+                  lambda: "return id(box_temperature).state >= 34.0;"
+                then:
+                  - switch.turn_on: cooler_1
+                  - switch.turn_off: cooler_2
+                else:
+                  - switch.turn_off: cooler_1
+                  - switch.turn_off: cooler_2
+
+interval:
+  - interval: 30s
+    then:
+      - script.execute: update_cooling_strategy
