@@ -105,15 +105,38 @@ sensor:
       id: box_pressure
     update_interval: 30s
 
+  # Importando as temperaturas das CPUs via Home Assistant (Apenas placas da case principal)
+  - platform: homeassistant
+    id: cpu_temp_ha
+    entity_id: sensor.system_monitor_temperatura_do_processador
+
+  - platform: homeassistant
+    id: cpu_temp_sentinel
+    entity_id: sensor.192_168_1_101_cpu_thermal_0_temperature
+
+  - platform: homeassistant
+    id: cpu_temp_void
+    entity_id: sensor.192_168_1_105_cpu_thermal_0_temperature
+
 text_sensor:
   - platform: template
     name: "Box Cooling Mode"
     id: box_cooling_mode
     update_interval: 10s
     lambda: |-
-      if (id(box_temperature).state >= 42.0) {
+      bool high_temp = id(box_temperature).state >= 42.0 || 
+                       id(cpu_temp_ha).state >= 65.0 || 
+                       id(cpu_temp_sentinel).state >= 65.0 || 
+                       id(cpu_temp_void).state >= 65.0;
+                       
+      bool med_temp = id(box_temperature).state >= 34.0 || 
+                      id(cpu_temp_ha).state >= 58.0 || 
+                      id(cpu_temp_sentinel).state >= 58.0 || 
+                      id(cpu_temp_void).state >= 58.0;
+                      
+      if (high_temp) {
         return {"HIGH"};
-      } else if (id(box_temperature).state >= 34.0) {
+      } else if (med_temp) {
         return {"MEDIUM"};
       } else {
         return {"OFF"};
@@ -128,14 +151,22 @@ script:
     then:
       - if:
           condition:
-            lambda: "return id(box_temperature).state >= 42.0;"
+            lambda: |-
+              return id(box_temperature).state >= 42.0 || 
+                     id(cpu_temp_ha).state >= 65.0 || 
+                     id(cpu_temp_sentinel).state >= 65.0 || 
+                     id(cpu_temp_void).state >= 65.0;
           then:
             - switch.turn_on: cooler_1
             - switch.turn_on: cooler_2
           else:
             - if:
                 condition:
-                  lambda: "return id(box_temperature).state >= 34.0;"
+                  lambda: |-
+                    return id(box_temperature).state >= 34.0 || 
+                           id(cpu_temp_ha).state >= 58.0 || 
+                           id(cpu_temp_sentinel).state >= 58.0 || 
+                           id(cpu_temp_void).state >= 58.0;
                 then:
                   - switch.turn_on: cooler_1
                   - switch.turn_off: cooler_2

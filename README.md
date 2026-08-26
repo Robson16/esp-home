@@ -7,24 +7,24 @@ This project manages a distributed IoT sensor network using ESP32 microcontrolle
 ### Architecture 
 
 ```text
-┌────────────────────────────────────────────────────────────┐
-│                    Home Assistant                          │
-│          (Raspberry Pi Docker Swarm - Central Hub)         │
-└──────┬──────────────────────┬───────────────────────────────┘
-       │                      │
-       │                      │
-┌──────▼──────────────────┐   ┌───────────────────────────────┐
-│   Sensor Node 01        │   │   Sensor Node 02              │
+┌─────────────────────────────────────────────────────────────┐
+│                    Home Assistant                           │
+│          (Raspberry Pi Docker Swarm - Central Hub)          │
+└──────┬────────────────────────┬─────────────────────────────┘
+       │                        │
+       │                        │
+┌──────▼──────────────────┐   ┌─▼──────────────────────────────┐
+│   Sensor Node 01        │   │   Sensor Node 02               │
 │   (Gas + Clock + Stats) │   │   (Environmental OLED Display) │
-│  - DHT22 Temp/Humidity  │   │  - BMP280 Temp/Pressure       │
-│  - MQ-2 Flammable Gas   │   │  - DHT22 Temp/Humidity        │
-│  - MQ-7 Carbon Monoxide │   │  - OLED Display 128x64        │
-│  - MQ-135 Air Quality   │   │  - Brightness                 │
-│  - LDR Brightness       │   │                               │
-│  - PIR Motion Sensor    │   │                               │
-│  - OLED + 7-Segment     │   │                               │
-│  - Cluster Health Stats │   │                               │
-└─────────────────────────┘   └───────────────────────────────┘
+│  - DHT22 Temp/Humidity  │   │  - BMP280 Temp/Pressure        │
+│  - MQ-2 Flammable Gas   │   │  - DHT22 Temp/Humidity         │
+│  - MQ-7 Carbon Monoxide │   │  - OLED Display 128x64         │
+│  - MQ-135 Air Quality   │   │  - Brightness                  │
+│  - LDR Brightness       │   │                                │
+│  - PIR Motion Sensor    │   │                                │
+│  - OLED + 7-Segment     │   │                                │
+│  - Cluster Health Stats │   │                                │
+└─────────────────────────┘   └────────────────────────────────┘
 ```
 
 ### Components
