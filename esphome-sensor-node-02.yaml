@@ -130,9 +130,9 @@ text_sensor:
                        id(cpu_temp_void).state >= 65.0;
                        
       bool med_temp = id(box_temperature).state >= 34.0 || 
-                      id(cpu_temp_ha).state >= 58.0 || 
-                      id(cpu_temp_sentinel).state >= 58.0 || 
-                      id(cpu_temp_void).state >= 58.0;
+                      id(cpu_temp_ha).state >= 60.0 || 
+                      id(cpu_temp_sentinel).state >= 60.0 || 
+                      id(cpu_temp_void).state >= 60.0;
                       
       if (high_temp) {
         return {"HIGH"};
@@ -164,9 +164,9 @@ script:
                 condition:
                   lambda: |-
                     return id(box_temperature).state >= 34.0 || 
-                           id(cpu_temp_ha).state >= 58.0 || 
-                           id(cpu_temp_sentinel).state >= 58.0 || 
-                           id(cpu_temp_void).state >= 58.0;
+                           id(cpu_temp_ha).state >= 60.0 || 
+                           id(cpu_temp_sentinel).state >= 60.0 || 
+                           id(cpu_temp_void).state >= 60.0;
                 then:
                   - switch.turn_on: cooler_1
                   - switch.turn_off: cooler_2

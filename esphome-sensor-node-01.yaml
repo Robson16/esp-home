@@ -227,7 +227,7 @@ sensor:
       name: "BMP Temp Node 01"
       id: bmp_temp_01
       filters:
-        - offset: -2.8
+        - offset: -4.8
     pressure:
       name: "Pressure Node 01"
       id: bmp_pressure_01
